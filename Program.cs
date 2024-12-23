@@ -1,7 +1,17 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using JokeTrader;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
-var host = Host.CreateApplicationBuilder(args);
+var builder = Host.CreateApplicationBuilder(args);
 
-var app = host.Build();
+builder.Services.AddBybit();
+builder.Services.AddDbContext<JokerContext>(
+    options => options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddHostedService<KLineService>();
+
+var app = builder.Build();
 
 await app.RunAsync();
