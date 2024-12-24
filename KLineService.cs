@@ -36,19 +36,20 @@ internal class KLineService(IBybitRestClient restClient, JokerContext context, I
     public async Task PrepareBTCUSDT(DateTime startTime, DateTime endTime, CancellationToken stoppingToken) {
         var dbSymbol = await this.PrepareSymbol("BTCUSDT", stoppingToken);
 
-        if (await context.BTCKLines.AnyAsync(k => k.StartTime > endTime, stoppingToken)) {
+        if (await context.BTCKLines.AnyAsync(k => k.StartTime >= endTime, stoppingToken)) {
             logger.LogInformation("BTCUSDT KLines already exist beyond the specified endTime.");
             return;
         }
 
         while (startTime < endTime) {
             var kLines = await this.FetchKLines<BTCKLine>(
-                dbSymbol, KlineInterval.OneMinute, startTime, null, stoppingToken);
+                dbSymbol, KlineInterval.OneMinute, startTime, endTime, stoppingToken);
 
             context.BTCKLines.AddRange(kLines);
             await context.SaveChangesAsync(stoppingToken);
 
-            startTime = kLines.Last().StartTime.AddMilliseconds(1);
+            startTime = kLines.MaxBy(k => k.StartTime)!.StartTime.AddMinutes(1); 
+            logger.LogInformation("Fetched {0} KLines starting from {1}", kLines.Length, startTime);
         }
 
         logger.LogInformation("BTCUSDT KLines prepared");
