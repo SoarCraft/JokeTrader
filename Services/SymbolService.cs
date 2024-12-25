@@ -33,6 +33,6 @@ internal class SymbolService(
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
-        // TODO
+        await this.Prepare();
     }
 }

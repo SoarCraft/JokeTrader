@@ -20,12 +20,8 @@ builder.Services.AddTransient<RatioService>();
 builder.Services.AddTransient<FundRateService>();
 builder.Services.AddTransient<InterestService>();
 
-var app = builder.Build();
+builder.Services.AddHostedService<Orchestration>();
 
-using (var scope = app.Services.CreateScope()) {
-    var services = scope.ServiceProvider;
-    var symbol = services.GetRequiredService<SymbolService>();
-    await symbol.Prepare();
-}
+var app = builder.Build();
 
 await app.RunAsync();
