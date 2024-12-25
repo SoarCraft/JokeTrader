@@ -10,4 +10,6 @@ public class JokerContext(DbContextOptions<JokerContext> options) : DbContext(op
     public DbSet<BTCRatio> BTCRatios { get; set; }
 
     public DbSet<BTCFundRate> BTCFundRates { get; set; }
+
+    public DbSet<BTCInterest> BTCInterests { get; set; }
 }

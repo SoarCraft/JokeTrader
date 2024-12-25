@@ -39,6 +39,17 @@ public abstract class BasicFundRate {
 
 public class BTCFundRate : BasicFundRate;
 
+public class BasicInterest {
+    [Key]
+    public DateTime Timestamp { get; set; }
+
+    public decimal OpenInterest { get; set; }
+
+    public Symbol Symbol { get; set; }
+}
+
+public class BTCInterest : BasicInterest;
+
 public class Symbol {
     [Key]
     public string Name { get; set; }
@@ -51,6 +62,8 @@ public class Symbol {
 
     public double MaxLeverage { get; set; }
 
+    public int FundingInterval { get; set; }
+
     public DateTime LastUpdated { get; set; }
 
     public List<BTCKLine> BTCKLines { get; set; } = [];
@@ -58,4 +71,6 @@ public class Symbol {
     public List<BTCRatio> BTCRatios { get; set; } = [];
 
     public List<BTCFundRate> BTCFundRates { get; set; } = [];
+
+    public List<BTCInterest> BTCInterests { get; set; } = [];
 }

@@ -41,7 +41,7 @@ internal class KLineService(IBybitRestClient restClient, JokerContext context,
         CancellationToken stoppingToken) where T : BasicKLine, new() {
 
         var klineResult = await restClient.V5Api.ExchangeData.GetKlinesAsync(
-            this.Opt.Category, symbol.Name, this.Opt.Interval, startTime, endTime, 1000, stoppingToken);
+            this.Opt.Category, symbol.Name, this.Opt.KlineInterval, startTime, endTime, 1000, stoppingToken);
 
         if (!klineResult.Success)
             throw new HttpRequestException(klineResult.Error?.Message);

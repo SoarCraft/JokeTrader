@@ -11,7 +11,9 @@ internal class JokerOption {
 
     public string[] Symbols { get; set; } = ["BTCUSDT"];
 
-    public KlineInterval Interval { get; set; } = KlineInterval.FiveMinutes;
+    public KlineInterval KlineInterval { get; set; } = KlineInterval.FiveMinutes;
+
+    public OpenInterestInterval InterestInterval { get; set; } = OpenInterestInterval.FiveMinutes;
 
     public DataPeriod Period { get; set; } = DataPeriod.FiveMinutes;
 }
