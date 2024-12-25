@@ -1,6 +1,5 @@
 ﻿namespace JokeTrader.Services;
 
-using Bybit.Net.Enums;
 using Bybit.Net.Interfaces.Clients;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
@@ -9,39 +8,40 @@ using Microsoft.Extensions.Options;
 
 internal class KLineService(IBybitRestClient restClient, JokerContext context, 
     IOptions<JokerOption> options, ILogger<KLineService> logger) : BackgroundService {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
-        var opt = options.Value;
+    public JokerOption Opt => options.Value;
 
-        await this.PrepareBTCUSDT(opt.HistoryStart, opt.HistoryEnd, stoppingToken);
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
+        await this.Prepare(context.BTCKLines, "BTCUSDT", this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
     }
 
-    public async Task PrepareBTCUSDT(DateTime startTime, DateTime endTime, CancellationToken stoppingToken) {
-        var symbol = await context.Symbols.FirstAsync(s => s.Name == "BTCUSDT", stoppingToken);
+    public async Task Prepare<T>(DbSet<T> targetDb, string symbolName, DateTime startTime,
+        DateTime endTime, CancellationToken stoppingToken) where T : BasicKLine, new() {
 
-        if (await context.BTCKLines.AnyAsync(k => k.StartTime >= endTime, stoppingToken)) {
-            logger.LogInformation("BTCUSDT KLines already exist beyond the specified endTime.");
+        var symbol = await context.Symbols.FirstAsync(s => s.Name == symbolName, stoppingToken);
+
+        if (await targetDb.AnyAsync(k => k.StartTime >= endTime, stoppingToken)) {
+            logger.LogInformation("{0} KLines already exist beyond the specified endTime.", symbol.Name);
             return;
         }
 
         while (startTime < endTime) {
-            var kLines = await this.FetchKLines<BTCKLine>(
-                symbol, KlineInterval.OneMinute, startTime, endTime, stoppingToken);
+            var kLines = await this.FetchKLines<T>(symbol, startTime, endTime, stoppingToken);
 
-            context.BTCKLines.AddRange(kLines);
+            targetDb.AddRange(kLines);
             await context.SaveChangesAsync(stoppingToken);
 
-            startTime = kLines.MaxBy(k => k.StartTime)!.StartTime.AddMinutes(1); 
-            logger.LogInformation("Fetched {0} KLines starting from {1}", kLines.Length, startTime);
+            startTime = kLines.MaxBy(k => k.StartTime)!.StartTime.AddMinutes(1);
+            logger.LogInformation("Fetched {0} KLines for {1} starting from {2}", kLines.Length, symbol.Name, startTime);
         }
 
-        logger.LogInformation("BTCUSDT KLines prepared");
+        logger.LogInformation("{0} KLines prepared", symbol.Name);
     }
 
-    public async Task<T[]> FetchKLines<T>(Symbol symbol, KlineInterval interval, DateTime startTime, DateTime? endTime,
+    public async Task<T[]> FetchKLines<T>(Symbol symbol, DateTime startTime, DateTime? endTime,
         CancellationToken stoppingToken) where T : BasicKLine, new() {
 
         var klineResult = await restClient.V5Api.ExchangeData.GetKlinesAsync(
-            Category.Spot, symbol.Name, interval, startTime, endTime, 1000, stoppingToken);
+            this.Opt.Category, symbol.Name, this.Opt.Interval, startTime, endTime, 1000, stoppingToken);
 
         if (!klineResult.Success)
             throw new HttpRequestException(klineResult.Error?.Message);
@@ -49,6 +49,7 @@ internal class KLineService(IBybitRestClient restClient, JokerContext context,
         var symbolLines = klineResult.Data.List.Select(k => new T {
             StartTime = k.StartTime,
             OpenPrice = (double)k.OpenPrice,
+            Volume = (double)k.Volume,
             Symbol = symbol
         }).ToArray();
 

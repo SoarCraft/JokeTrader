@@ -10,4 +10,8 @@ internal class JokerOption {
     public Category Category { get; set; } = Category.Inverse;
 
     public string[] Symbols { get; set; } = ["BTCUSDT"];
+
+    public KlineInterval Interval { get; set; } = KlineInterval.FiveMinutes;
+
+    public DataPeriod Period { get; set; } = DataPeriod.FiveMinutes;
 }

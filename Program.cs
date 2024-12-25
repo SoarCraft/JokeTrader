@@ -15,8 +15,9 @@ builder.Services.AddDbContext<JokerContext>(
         .EnableSensitiveDataLogging());
 
 builder.Services.AddTransient<SymbolService>();
-builder.Services.AddHostedService<KLineService>();
+// builder.Services.AddHostedService<KLineService>();
 builder.Services.AddHostedService<RatioService>();
+builder.Services.AddHostedService<FundRateService>();
 
 var app = builder.Build();
 

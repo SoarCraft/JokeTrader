@@ -7,12 +7,11 @@ using Microsoft.Extensions.Options;
 internal class SymbolService(
     IBybitRestClient restClient, JokerContext context, IOptions<JokerOption> options,
     ILogger<SymbolService> logger) : BackgroundService {
+    public JokerOption Opt => options.Value;
 
     public async Task Prepare() {
-        var opt = options.Value;
-
-        foreach (var symbolName in opt.Symbols) {
-            var symbolResult = await restClient.V5Api.ExchangeData.GetSpotSymbolsAsync(symbolName);
+        foreach (var symbolName in this.Opt.Symbols) {
+            var symbolResult = await restClient.V5Api.ExchangeData.GetLinearInverseSymbolsAsync(this.Opt.Category, symbolName);
             var symbol = symbolResult.Data.List.First();
 
             var dbSymbol = await context.Symbols.FirstOrDefaultAsync(s => s.Name == symbol.Name)
@@ -20,8 +19,10 @@ internal class SymbolService(
                                Name = symbol.Name
                            }).Entity;
 
-            dbSymbol.MaxOrderValue = (double)symbol.LotSizeFilter!.MaxOrderValue;
-            dbSymbol.MinOrderValue = (double)symbol.LotSizeFilter!.MinOrderValue;
+            dbSymbol.MaxPrice = (double)symbol.PriceFilter!.MaxPrice;
+            dbSymbol.MinPrice = (double)symbol.PriceFilter!.MinPrice;
+            dbSymbol.MaxLeverage = (double)symbol.LeverageFilter!.MaxLeverage;
+            dbSymbol.MinLeverage = (double)symbol.LeverageFilter!.MinLeverage;
             dbSymbol.LastUpdated = DateTime.UtcNow;
 
             logger.LogInformation("Symbol {0} prepared", dbSymbol.Name);
