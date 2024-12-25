@@ -25,14 +25,14 @@ internal class FundRateService(IBybitRestClient restClient, IDbContextFactory<Jo
             return;
         }
 
-        while (startTime < endTime) {
+        while (endTime > startTime) {
             var rates = await this.FetchFundRates<T>(symbol, startTime, endTime, stoppingToken);
 
             targetDb.AddRange(rates);
             await context.SaveChangesAsync(stoppingToken);
 
-            startTime = rates.MaxBy(r => r.Timestamp)!.Timestamp.AddMinutes(symbol.FundingInterval);
-            logger.LogInformation("Fetched {0} Funding Rates for {1} starting from {2}", rates.Length, symbol.Name, startTime);
+            logger.LogInformation("Fetched {0} Funding Rates for {1} up to {2}", rates.Length, symbol.Name, endTime);
+            endTime = rates.MinBy(r => r.Timestamp)!.Timestamp.AddMinutes(-symbol.FundingInterval);
         }
 
         logger.LogInformation("{0} Funding Rates prepared", symbol.Name);
@@ -42,7 +42,7 @@ internal class FundRateService(IBybitRestClient restClient, IDbContextFactory<Jo
         CancellationToken stoppingToken) where T : BasicFundRate, new() {
 
         var rateResult = await restClient.V5Api.ExchangeData.GetFundingRateHistoryAsync(
-            this.Opt.Category, symbol.Name, startTime, endTime, ct: stoppingToken);
+            this.Opt.Category, symbol.Name, startTime, endTime, 200, ct: stoppingToken);
 
         if (!rateResult.Success)
             throw new HttpRequestException(rateResult.Error?.Message);

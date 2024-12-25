@@ -25,14 +25,14 @@ internal class KLineService(IBybitRestClient restClient, IDbContextFactory<Joker
             return;
         }
 
-        while (startTime < endTime) {
+        while (endTime > startTime) {
             var kLines = await this.FetchKLines<T>(symbol, startTime, endTime, stoppingToken);
 
             targetDb.AddRange(kLines);
             await context.SaveChangesAsync(stoppingToken);
 
-            startTime = kLines.MaxBy(k => k.StartTime)!.StartTime.AddMinutes(1);
-            logger.LogInformation("Fetched {0} KLines for {1} starting from {2}", kLines.Length, symbol.Name, startTime);
+            logger.LogInformation("Fetched {0} KLines for {1} up to {2}", kLines.Length, symbol.Name, endTime);
+            endTime = kLines.MinBy(k => k.StartTime)!.StartTime.AddMinutes(-1);
         }
 
         logger.LogInformation("{0} KLines prepared", symbol.Name);

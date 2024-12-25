@@ -6,15 +6,16 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-internal class InterestService(IBybitRestClient restClient, JokerContext context,
+internal class InterestService(IBybitRestClient restClient, IDbContextFactory<JokerContext> db,
     IOptions<JokerOption> options, ILogger<InterestService> logger) : BackgroundService {
     public JokerOption Opt => options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
-        await this.Prepare(context.BTCInterests, "BTCUSDT", this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
+        await using var context = await db.CreateDbContextAsync(stoppingToken);
+        await this.Prepare(context, context.BTCInterests, "BTCUSDT", this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
     }
 
-    public async Task Prepare<T>(DbSet<T> targetDb, string symbolName, DateTime startTime,
+    public async Task Prepare<T>(JokerContext context, DbSet<T> targetDb, string symbolName, DateTime startTime,
         DateTime endTime, CancellationToken stoppingToken) where T : BasicInterest, new() {
 
         var symbol = await context.Symbols.FirstAsync(s => s.Name == symbolName, stoppingToken);
@@ -24,14 +25,14 @@ internal class InterestService(IBybitRestClient restClient, JokerContext context
             return;
         }
 
-        while (startTime < endTime) {
+        while (endTime > startTime) {
             var interests = await this.FetchInterests<T>(symbol, startTime, endTime, stoppingToken);
 
             targetDb.AddRange(interests);
             await context.SaveChangesAsync(stoppingToken);
 
-            startTime = interests.MaxBy(r => r.Timestamp)!.Timestamp.AddMinutes(1);
-            logger.LogInformation("Fetched {0} Open Interests for {1} starting from {2}", interests.Length, symbol.Name, startTime);
+            logger.LogInformation("Fetched {0} Open Interests for {1} up to {2}", interests.Length, symbol.Name, endTime);
+            endTime = interests.MinBy(r => r.Timestamp)!.Timestamp.AddMinutes(-1);
         }
 
         logger.LogInformation("{0} Open Interests prepared", symbol.Name);
@@ -41,7 +42,7 @@ internal class InterestService(IBybitRestClient restClient, JokerContext context
         CancellationToken stoppingToken) where T : BasicInterest, new() {
 
         var interestResult = await restClient.V5Api.ExchangeData.GetOpenInterestAsync(
-            this.Opt.Category, symbol.Name, this.Opt.InterestInterval, startTime, endTime, ct: stoppingToken);
+            this.Opt.Category, symbol.Name, this.Opt.InterestInterval, startTime, endTime, 200, ct: stoppingToken);
 
         if (!interestResult.Success)
             throw new HttpRequestException(interestResult.Error?.Message);

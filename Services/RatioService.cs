@@ -25,14 +25,14 @@ internal class RatioService(IBybitRestClient restClient, IDbContextFactory<Joker
             return;
         }
 
-        while (startTime < endTime) {
+        while (endTime > startTime) {
             var ratios = await this.FetchRatios<T>(symbol, startTime, endTime, stoppingToken);
 
             targetDb.AddRange(ratios);
             await context.SaveChangesAsync(stoppingToken);
 
-            startTime = ratios.MaxBy(r => r.Timestamp)!.Timestamp.AddMinutes(1);
-            logger.LogInformation("Fetched {0} Ratios for {1} starting from {2}", ratios.Length, symbol.Name, startTime);
+            logger.LogInformation("Fetched {0} Ratios for {1} up to {2}", ratios.Length, symbol.Name, endTime);
+            endTime = ratios.MinBy(r => r.Timestamp)!.Timestamp.AddMinutes(-1);
         }
 
         logger.LogInformation("{0} Ratios prepared", symbol.Name);
