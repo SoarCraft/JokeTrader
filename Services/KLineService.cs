@@ -6,15 +6,16 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-internal class KLineService(IBybitRestClient restClient, JokerContext context, 
+internal class KLineService(IBybitRestClient restClient, IDbContextFactory<JokerContext> db, 
     IOptions<JokerOption> options, ILogger<KLineService> logger) : BackgroundService {
     public JokerOption Opt => options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
-        await this.Prepare(context.BTCKLines, "BTCUSDT", this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
+        await using var context = await db.CreateDbContextAsync(stoppingToken);
+        await this.Prepare(context, context.BTCKLines, "BTCUSDT", this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
     }
 
-    public async Task Prepare<T>(DbSet<T> targetDb, string symbolName, DateTime startTime,
+    public async Task Prepare<T>(JokerContext context, DbSet<T> targetDb, string symbolName, DateTime startTime,
         DateTime endTime, CancellationToken stoppingToken) where T : BasicKLine, new() {
 
         var symbol = await context.Symbols.FirstAsync(s => s.Name == symbolName, stoppingToken);

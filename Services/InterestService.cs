@@ -48,7 +48,7 @@ internal class InterestService(IBybitRestClient restClient, JokerContext context
 
         var interests = interestResult.Data.List.Select(r => new T {
             Timestamp = r.Timestamp,
-            OpenInterest = r.OpenInterest,
+            OpenInterest = (double)r.OpenInterest,
             Symbol = symbol
         }).ToArray();
 

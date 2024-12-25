@@ -6,15 +6,16 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-internal class FundRateService(IBybitRestClient restClient, JokerContext context,
+internal class FundRateService(IBybitRestClient restClient, IDbContextFactory<JokerContext> db,
     IOptions<JokerOption> options, ILogger<FundRateService> logger) : BackgroundService {
     public JokerOption Opt => options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
-        await this.Prepare(context.BTCFundRates, "BTCUSDT", this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
+        await using var context = await db.CreateDbContextAsync(stoppingToken);
+        await this.Prepare(context, context.BTCFundRates, "BTCUSDT", this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
     }
 
-    public async Task Prepare<T>(DbSet<T> targetDb, string symbolName, DateTime startTime,
+    public async Task Prepare<T>(JokerContext context, DbSet<T> targetDb, string symbolName, DateTime startTime,
         DateTime endTime, CancellationToken stoppingToken) where T : BasicFundRate, new() {
 
         var symbol = await context.Symbols.FirstAsync(s => s.Name == symbolName, stoppingToken);

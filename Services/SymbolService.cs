@@ -5,11 +5,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 internal class SymbolService(
-    IBybitRestClient restClient, JokerContext context, IOptions<JokerOption> options,
+    IBybitRestClient restClient, IDbContextFactory<JokerContext> db, IOptions<JokerOption> options,
     ILogger<SymbolService> logger) : BackgroundService {
     public JokerOption Opt => options.Value;
 
-    public async Task Prepare() {
+    public async Task Fetch(JokerContext context) {
         foreach (var symbolName in this.Opt.Symbols) {
             var symbolResult = await restClient.V5Api.ExchangeData.GetLinearInverseSymbolsAsync(this.Opt.Category, symbolName);
             var symbol = symbolResult.Data.List.First();
@@ -33,6 +33,7 @@ internal class SymbolService(
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
-        await this.Prepare();
+        await using var context = await db.CreateDbContextAsync(stoppingToken);
+        await this.Fetch(context);
     }
 }

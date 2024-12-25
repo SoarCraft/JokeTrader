@@ -8,7 +8,7 @@ builder.Services.AddOptions<JokerOption>();
 
 builder.Services.AddBybit();
 
-builder.Services.AddDbContext<JokerContext>(
+builder.Services.AddDbContextFactory<JokerContext>(
     options => options.UseSqlServer(
             builder.Configuration.GetConnectionString("DefaultConnection"))
         .EnableDetailedErrors()

@@ -2,7 +2,12 @@
 
 using System.ComponentModel.DataAnnotations;
 
-public abstract class BasicKLine {
+public abstract class Concurrency { 
+    [Timestamp]
+    public byte[] Version { get; set; }
+}
+
+public abstract class BasicKLine : Concurrency {
     [Key]
     public DateTime StartTime { get; set; }
 
@@ -15,7 +20,7 @@ public abstract class BasicKLine {
 
 public class BTCKLine : BasicKLine;
 
-public abstract class BasicRatio {
+public abstract class BasicRatio : Concurrency {
     [Key]
     public DateTime Timestamp { get; set; }
 
@@ -28,7 +33,7 @@ public abstract class BasicRatio {
 
 public class BTCRatio : BasicRatio;
 
-public abstract class BasicFundRate {
+public abstract class BasicFundRate : Concurrency {
     [Key]
     public DateTime Timestamp { get; set; }
 
@@ -39,18 +44,18 @@ public abstract class BasicFundRate {
 
 public class BTCFundRate : BasicFundRate;
 
-public class BasicInterest {
+public class BasicInterest : Concurrency {
     [Key]
     public DateTime Timestamp { get; set; }
 
-    public decimal OpenInterest { get; set; }
+    public double OpenInterest { get; set; }
 
     public Symbol Symbol { get; set; }
 }
 
 public class BTCInterest : BasicInterest;
 
-public class Symbol {
+public class Symbol : Concurrency {
     [Key]
     public string Name { get; set; }
 
