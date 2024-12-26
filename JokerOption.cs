@@ -16,4 +16,12 @@ internal class JokerOption {
     public OpenInterestInterval InterestInterval { get; set; } = OpenInterestInterval.FiveMinutes;
 
     public DataPeriod Period { get; set; } = DataPeriod.FiveMinutes;
+
+    public int BatchSize { get; set; } = 32;
+
+    public int Epochs { get; set; } = 100;
+
+    public int MaxWindow { get; set; } = 40;
+
+    public int MinWindow { get; set; } = 10;
 }

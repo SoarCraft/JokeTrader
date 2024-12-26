@@ -1,12 +1,11 @@
 ﻿namespace JokeTrader.Torch;
 
-using System.Collections;
 using Bybit.Net.Enums;
 using Microsoft.Extensions.Options;
 using TorchSharp;
 
 internal class JokerDataLoader(JokerContext context, IOptions<JokerOption> options, ILogger<JokerDataLoader> logger,
-    ILogger<JokerDataEnumerator> enumLogger) : IEnumerable<(torch.Tensor, torch.Tensor)> {
+    ILogger<JokerDataEnumerator> enumLogger) : IAsyncEnumerable<(torch.Tensor, torch.Tensor)> {
 
     public JokerOption Opt => options.Value;
 
@@ -18,13 +17,11 @@ internal class JokerDataLoader(JokerContext context, IOptions<JokerOption> optio
         KlineInterval.OneDay
     }.Cast<int>().Select(x => x / 60).ToArray();
 
-    public IEnumerator<(torch.Tensor, torch.Tensor)> GetEnumerator() {
+    public IAsyncEnumerator<(torch.Tensor, torch.Tensor)> GetAsyncEnumerator(CancellationToken cancellationToken = new()) {
         var randomViewSize = this.ViewSizes[Random.Shared.Next(this.ViewSizes.Length)];
-        var randomWindowSize = Random.Shared.Next(10, 40);
+        var randomWindowSize = Random.Shared.Next(this.Opt.MinWindow, this.Opt.MaxWindow + 1);
 
         logger.LogInformation($"View size: {randomViewSize}, Window size: {randomWindowSize}");
         return new JokerDataEnumerator(context, this.Opt, randomViewSize, randomWindowSize, enumLogger);
     }
-
-    IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
 }
