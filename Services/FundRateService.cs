@@ -32,7 +32,7 @@ internal class FundRateService(IBybitRestClient restClient, IDbContextFactory<Jo
             await context.SaveChangesAsync(stoppingToken);
 
             logger.LogInformation("Fetched {0} Funding Rates for {1} up to {2}", rates.Length, symbol.Name, endTime);
-            endTime = rates.MinBy(r => r.Timestamp)!.Timestamp.AddMinutes(-symbol.FundingInterval);
+            endTime = rates.MinBy(r => r.Timestamp)!.Timestamp.AddMinutes(-1);
         }
 
         logger.LogInformation("{0} Funding Rates prepared", symbol.Name);

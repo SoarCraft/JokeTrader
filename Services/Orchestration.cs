@@ -1,11 +1,15 @@
 ﻿namespace JokeTrader.Services;
 
 using System.Threading.Tasks;
+using Torch;
 
 internal class Orchestration(FundRateService fundRate, InterestService interest, 
-    KLineService kLine, RatioService ratio, SymbolService symbol) : BackgroundService {
+    KLineService kLine, RatioService ratio, SymbolService symbol,
+    JokerDataLoader loader) : BackgroundService {
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
+        loader.GetEnumerator();
+
         await symbol.StartAsync(stoppingToken);
         await symbol.ExecuteTask!;
 

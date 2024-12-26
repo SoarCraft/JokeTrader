@@ -1,5 +1,6 @@
 ﻿using JokeTrader;
 using JokeTrader.Services;
+using JokeTrader.Torch;
 using Microsoft.EntityFrameworkCore;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -20,6 +21,7 @@ builder.Services.AddTransient<RatioService>();
 builder.Services.AddTransient<FundRateService>();
 builder.Services.AddTransient<InterestService>();
 
+builder.Services.AddSingleton<JokerDataLoader>();
 builder.Services.AddHostedService<Orchestration>();
 
 var app = builder.Build();

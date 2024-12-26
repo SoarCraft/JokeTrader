@@ -67,8 +67,6 @@ public class Symbol : Concurrency {
 
     public double MaxLeverage { get; set; }
 
-    public int FundingInterval { get; set; }
-
     public DateTime LastUpdated { get; set; }
 
     public List<BTCKLine> BTCKLines { get; set; } = [];

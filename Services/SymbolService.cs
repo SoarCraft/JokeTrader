@@ -23,7 +23,6 @@ internal class SymbolService(
             dbSymbol.MinPrice = (double)symbol.PriceFilter!.MinPrice;
             dbSymbol.MaxLeverage = (double)symbol.LeverageFilter!.MaxLeverage;
             dbSymbol.MinLeverage = (double)symbol.LeverageFilter!.MinLeverage;
-            dbSymbol.FundingInterval = symbol.FundingInterval;
             dbSymbol.LastUpdated = DateTime.UtcNow;
 
             logger.LogInformation("Symbol {0} prepared", dbSymbol.Name);
