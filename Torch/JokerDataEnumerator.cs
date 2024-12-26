@@ -34,8 +34,11 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
 
     public async Task LoadNextBatch() {
         var queryEndTime = this.currentStartTime.AddMinutes(this.viewSize * this.option.BatchSize);
+        var interval = (int)this.option.KlineInterval / 60;
 
         var rawData = await this.context.BTCKLines
+            .OrderBy(k => k.StartTime)
+            .Where(k => k.StartTime >= this.currentStartTime && k.StartTime < queryEndTime)
             .Select(k => new {
                 KLine = k,
                 Ratio = this.context.BTCRatios
@@ -59,8 +62,39 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 BuyRatio = x.Ratio.BuyRatio,
                 SellRatio = x.Ratio.SellRatio,
                 OpenInterest = x.Interest,
-                FundingRate = x.Fund
+                FundingRate = x.Fund,
+                Interval = interval
             }).ToListAsync();
+
+        if (this.viewSize == interval) {
+            this.currentBatchData = rawData;
+            this.logger.LogInformation($"Loaded {rawData.Count} rows from {this.currentStartTime} to {queryEndTime}");
+            return;
+        }
+
+        var aggregated = new List<SeriesDataRow>();
+        var skip = this.viewSize / interval;
+
+        for (var i = 0; i < rawData.Count; i += skip) {
+            var slice = rawData.Skip(i).Take(skip).ToList();
+
+            if (!slice.Any())
+                break;
+
+            aggregated.Add(new() {
+                Timestamp = slice.First().Timestamp,
+                OpenPrice = slice.Average(x => x.OpenPrice),
+                Volume = slice.Sum(x => x.Volume),
+                BuyRatio = slice.Average(x => x.BuyRatio),
+                SellRatio = slice.Average(x => x.SellRatio),
+                FundingRate = slice.Average(x => x.FundingRate),
+                OpenInterest = slice.Average(x => x.OpenInterest),
+                Interval = this.viewSize
+            });
+        }
+
+        this.currentBatchData = aggregated; 
+        this.logger.LogInformation($"Aggregated {aggregated.Count} rows from {this.currentStartTime} to {queryEndTime} with {this.viewSize} viewSize");
     }
 
     public ValueTask DisposeAsync() => throw new NotImplementedException();

@@ -14,4 +14,6 @@ internal class SeriesDataRow {
     public double FundingRate { get; set; }
 
     public double OpenInterest { get; set; }
+
+    public int Interval { get; set; }
 }
