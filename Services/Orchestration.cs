@@ -5,7 +5,7 @@ using Torch;
 
 internal class Orchestration(FundRateService fundRate, InterestService interest, 
     KLineService kLine, RatioService ratio, SymbolService symbol,
-    JokerDataLoader loader) : BackgroundService {
+    ZScoreService zScore, JokerDataLoader loader) : BackgroundService {
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         await symbol.StartAsync(stoppingToken);
@@ -15,5 +15,14 @@ internal class Orchestration(FundRateService fundRate, InterestService interest,
         await interest.StartAsync(stoppingToken);
         await kLine.StartAsync(stoppingToken);
         await ratio.StartAsync(stoppingToken);
+
+        Task.WaitAll([
+            fundRate.ExecuteTask!,
+            interest.ExecuteTask!,
+            kLine.ExecuteTask!,
+            ratio.ExecuteTask!
+        ]);
+
+        await zScore.StartAsync(stoppingToken);
     }
 }

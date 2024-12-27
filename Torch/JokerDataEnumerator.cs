@@ -67,8 +67,26 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 Interval = interval
             }).ToListAsync();
 
-        this.currentBatchData = this.aggregateData(rawData);
+        var aggregate = this.aggregateData(rawData);
+        this.currentBatchData = await this.normalizeData(aggregate);
         this.logger.LogInformation($"Load {this.currentBatchData.Count} rows from {this.currentStartTime} to {queryEndTime} with {this.viewSize} viewSize");
+    }
+
+    private async Task<List<SeriesDataRow>> normalizeData(List<SeriesDataRow> rawData) {
+        var normalization = await this.context.Normalizations
+            .Where(n => n.SymbolId == "BTCUSDT")
+            .Select(x => new { x.Feature, x.Mean, x.Std })
+            .ToDictionaryAsync(k => k.Feature, v => (v.Mean, v.Std));
+
+        foreach (var data in rawData) {
+            var priceNorm = normalization[nameof(SeriesFeatures.OpenPrice)];
+            data.OpenPrice = (data.OpenPrice - priceNorm.Mean) / priceNorm.Std;
+
+            var interestNorm = normalization[nameof(SeriesFeatures.OpenInterest)];
+            data.OpenInterest = (data.OpenInterest - interestNorm.Mean) / interestNorm.Std;
+        }
+
+        return rawData;
     }
 
     private List<SeriesDataRow> aggregateData(List<SeriesDataRow> rawData) {
