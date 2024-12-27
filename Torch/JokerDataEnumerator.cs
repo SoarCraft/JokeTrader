@@ -33,6 +33,8 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
     }
 
     public async Task LoadNextBatch() {
+        this.currentBatchData?.Clear();
+
         var requiredTimeSteps = this.windowSize + this.option.BatchSize - 1;
         var queryEndTime = this.currentStartTime.AddMinutes(this.viewSize * requiredTimeSteps);
         var interval = (int)this.option.KlineInterval / 60;
@@ -69,6 +71,7 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
 
         var aggregate = this.aggregateData(rawData);
         this.currentBatchData = await this.normalizeData(aggregate);
+
         this.logger.LogInformation($"Load {this.currentBatchData.Count} rows from {this.currentStartTime} to {queryEndTime} with {this.viewSize} viewSize");
     }
 
@@ -153,12 +156,12 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 this.option.BatchSize,
                 this.windowSize,
                 featDim
-            ]);
+            ], torch.ScalarType.Float32, this.option.Device);
 
             var target = torch.zeros([
                 this.option.BatchSize,
                 2
-            ]);
+            ], torch.ScalarType.Float32, this.option.Device);
 
             for (var batch = 0; batch < this.option.BatchSize; batch++) {
                 for (var window = 0; window < this.windowSize; window++) {
