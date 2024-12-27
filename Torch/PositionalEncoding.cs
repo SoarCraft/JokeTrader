@@ -14,11 +14,14 @@ internal class PositionalEncoding() : Module<Tensor, Tensor>(nameof(PositionalEn
         var intervals = input[.., .., -1];
         var features = input[.., .., ..^1];
 
-        var posEncoding = zeros(batchSize, seqLen, embedDim, device: input.device);
+        var posEncoding = zeros(batchSize, seqLen, embedDim - 1, device: input.device);
         for (var i = 0; i < (embedDim - 1) / 2; i++) {
-            var div = exp(-log(10000.0) * (2 * i) / embedDim);
+            var div = exp(-log(10000.0) * (2 * i) / (embedDim - 1));
+
             posEncoding[.., .., 2 * i] = sin(intervals.unsqueeze(-1) * div);
-            posEncoding[.., .., 2 * i + 1] = cos(intervals.unsqueeze(-1) * div);
+
+            if (2 * i + 1 < embedDim - 1)
+                posEncoding[.., .., 2 * i + 1] = cos(intervals.unsqueeze(-1) * div);
         }
 
         return (features + posEncoding).MoveToOuterDisposeScope();
