@@ -1,25 +1,36 @@
 ﻿namespace JokeTrader.Torch;
 
-using TorchSharp;
 using TorchSharp.FlashAttention;
 using TorchSharp.Modules;
 using static TorchSharp.torch;
-
 using static TorchSharp.torch.nn;
-using static TorchSharp.torch.nn.functional;
 
 internal class FlashMultiHeadAttention : Module<Tensor, Tensor> {
-    private readonly int numHeads;
+    private readonly FlashAttention flashAttention;
 
     private readonly int headDim;
-
-    private readonly Linear qkvProj;
+    private readonly int numHeads;
 
     private readonly Linear output;
 
-    private readonly FlashAttention flashAttention;
+    private readonly Linear qkvProj;
 
-    public FlashMultiHeadAttention(int embedDim, int numHeads, float dropoutRate = 0.1f) : base(nameof(FlashMultiHeadAttention)) {
+    public FlashMultiHeadAttention(int embedDim, int numHeads, float dropoutRate = 0.1f)
+        : base(nameof(FlashMultiHeadAttention)) {
+        if (embedDim <= 0)
+            throw new ArgumentException("嵌入维度必须大于0", nameof(embedDim));
+
+        if (numHeads <= 0)
+            throw new ArgumentException("注意力头数必须大于0", nameof(numHeads));
+
+        if (embedDim % numHeads != 0) {
+            var suggestedEmbedDim = (embedDim / numHeads + 1) * numHeads;
+            throw new ArgumentException(
+                $"嵌入维度({embedDim})必须能被注意力头数({numHeads})整除。" +
+                $"建议使用的嵌入维度: {suggestedEmbedDim}",
+                nameof(embedDim));
+        }
+
         this.numHeads = numHeads;
         this.headDim = embedDim / numHeads;
 
