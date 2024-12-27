@@ -99,6 +99,8 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
             data.Volume = volumeStd == 0
                 ? 0
                 : (data.Volume - volumeMean) / volumeStd;
+
+            data.Interval /= JokerDataLoader.ViewSizes.Max();
         }
 
         return rawData;

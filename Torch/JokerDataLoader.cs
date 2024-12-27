@@ -9,7 +9,7 @@ internal class JokerDataLoader(JokerContext context, IOptions<JokerOption> optio
 
     public JokerOption Opt => options.Value;
 
-    public int[] ViewSizes { get; } = new[] {
+    public static int[] ViewSizes { get; } = new[] {
         KlineInterval.FiveMinutes,
         KlineInterval.FifteenMinutes,
         KlineInterval.OneHour,
@@ -18,7 +18,7 @@ internal class JokerDataLoader(JokerContext context, IOptions<JokerOption> optio
     }.Cast<int>().Select(x => x / 60).ToArray();
 
     public IAsyncEnumerator<(torch.Tensor, torch.Tensor)> GetAsyncEnumerator(CancellationToken cancellationToken = new()) {
-        var randomViewSize = this.ViewSizes[Random.Shared.Next(this.ViewSizes.Length)];
+        var randomViewSize = ViewSizes[Random.Shared.Next(ViewSizes.Length)];
         var randomWindowSize = Random.Shared.Next(this.Opt.MinWindow, this.Opt.MaxWindow + 1);
 
         logger.LogInformation($"View size: {randomViewSize}, Window size: {randomWindowSize}");

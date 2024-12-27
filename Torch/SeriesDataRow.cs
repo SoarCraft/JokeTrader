@@ -13,18 +13,19 @@ internal class SeriesFeatures {
 
     public double OpenInterest { get; set; }
 
+    public int Interval { get; set; }
+
     public double[] ToArray() => [
         this.OpenPrice,
         this.Volume,
         this.BuyRatio,
         this.SellRatio,
         this.FundingRate,
-        this.OpenInterest
+        this.OpenInterest,
+        this.Interval
     ];
 }
 
 internal class SeriesDataRow : SeriesFeatures {
     public DateTime Timestamp { get; set; }
-
-    public int Interval { get; set; }
 }

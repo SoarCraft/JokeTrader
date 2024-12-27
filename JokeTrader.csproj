@@ -23,6 +23,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
     <PackageReference Include="TorchSharp-cuda-windows" Version="0.105.0" />
+    <PackageReference Include="TorchSharp.FlashAttention-windows" Version="0.4.0" />
   </ItemGroup>
 
 </Project>
