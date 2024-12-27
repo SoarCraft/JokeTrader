@@ -78,12 +78,24 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
             .Select(x => new { x.Feature, x.Mean, x.Std })
             .ToDictionaryAsync(k => k.Feature, v => (v.Mean, v.Std));
 
-        foreach (var data in rawData) {
-            var priceNorm = normalization[nameof(SeriesFeatures.OpenPrice)];
-            data.OpenPrice = (data.OpenPrice - priceNorm.Mean) / priceNorm.Std;
+        var volumeMean = rawData.CalculateMean(data => data.Volume);
+        var volumeStd = rawData.CalculateStd(data => data.Volume, volumeMean);
 
-            var interestNorm = normalization[nameof(SeriesFeatures.OpenInterest)];
-            data.OpenInterest = (data.OpenInterest - interestNorm.Mean) / interestNorm.Std;
+        var priceNorm = normalization[nameof(SeriesFeatures.OpenPrice)];
+        var interestNorm = normalization[nameof(SeriesFeatures.OpenInterest)];
+
+        foreach (var data in rawData) {
+            data.OpenPrice = priceNorm.Std == 0
+                ? 0
+                : (data.OpenPrice - priceNorm.Mean) / priceNorm.Std;
+
+            data.OpenInterest = interestNorm.Std == 0
+                ? 0
+                : (data.OpenInterest - interestNorm.Mean) / interestNorm.Std;
+
+            data.Volume = volumeStd == 0
+                ? 0
+                : (data.Volume - volumeMean) / volumeStd;
         }
 
         return rawData;

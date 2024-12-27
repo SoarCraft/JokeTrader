@@ -24,5 +24,6 @@ internal class Orchestration(FundRateService fundRate, InterestService interest,
         ]);
 
         await zScore.StartAsync(stoppingToken);
+        await zScore.ExecuteTask!;
     }
 }
