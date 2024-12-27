@@ -1,27 +1,30 @@
 ﻿namespace JokeTrader;
 
 using Bybit.Net.Enums;
+using TorchSharp;
 
 internal class JokerOption {
-    public DateTime HistoryStart { get; set; } = new(2024, 11, 1, 0, 0, 0, DateTimeKind.Utc);
+    public DateTime HistoryStart { get; } = new(2024, 11, 1, 0, 0, 0, DateTimeKind.Utc);
 
-    public DateTime HistoryEnd { get; set; } = new(2024, 12, 1, 0, 0, 0, DateTimeKind.Utc);
+    public DateTime HistoryEnd { get; } = new(2024, 12, 1, 0, 0, 0, DateTimeKind.Utc);
 
-    public Category Category { get; set; } = Category.Inverse;
+    public Category Category => Category.Inverse;
 
-    public string[] Symbols { get; set; } = ["BTCUSDT"];
+    public string[] Symbols { get; } = ["BTCUSDT"];
 
-    public KlineInterval KlineInterval { get; set; } = KlineInterval.FiveMinutes;
+    public KlineInterval KlineInterval => KlineInterval.FiveMinutes;
 
-    public OpenInterestInterval InterestInterval { get; set; } = OpenInterestInterval.FiveMinutes;
+    public OpenInterestInterval InterestInterval => OpenInterestInterval.FiveMinutes;
 
-    public DataPeriod Period { get; set; } = DataPeriod.FiveMinutes;
+    public DataPeriod Period => DataPeriod.FiveMinutes;
 
-    public int BatchSize { get; set; } = 32;
+    public int BatchSize => 32;
 
-    public int Epochs { get; set; } = 100;
+    public int Epochs => 100;
 
-    public int MaxWindow { get; set; } = 40;
+    public int MaxWindow => 40;
 
-    public int MinWindow { get; set; } = 10;
+    public int MinWindow => 10;
+
+    public torch.Device Device { get; } = torch.cuda_is_available() ? torch.CUDA : torch.CPU;
 }
