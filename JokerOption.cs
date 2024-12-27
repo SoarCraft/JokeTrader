@@ -10,7 +10,7 @@ internal class JokerOption {
 
     public Category Category => Category.Inverse;
 
-    public string[] Symbols { get; } = ["BTCUSDT"];
+    public string Symbol => "BTCUSDT";
 
     public KlineInterval KlineInterval => KlineInterval.FiveMinutes;
 

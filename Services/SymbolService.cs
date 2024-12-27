@@ -10,23 +10,21 @@ internal class SymbolService(
     public JokerOption Opt => options.Value;
 
     public async Task Fetch(JokerContext context) {
-        foreach (var symbolName in this.Opt.Symbols) {
-            var symbolResult = await restClient.V5Api.ExchangeData.GetLinearInverseSymbolsAsync(this.Opt.Category, symbolName);
-            var symbol = symbolResult.Data.List.First();
+        var symbolResult = await restClient.V5Api.ExchangeData.GetLinearInverseSymbolsAsync(this.Opt.Category, this.Opt.Symbol);
+        var symbol = symbolResult.Data.List.First();
 
-            var dbSymbol = await context.Symbols.FirstOrDefaultAsync(s => s.Name == symbol.Name)
-                           ?? context.Symbols.Add(new() {
-                               Name = symbol.Name
-                           }).Entity;
+        var dbSymbol = await context.Symbols.FirstOrDefaultAsync(s => s.Name == symbol.Name)
+                       ?? context.Symbols.Add(new() {
+                           Name = symbol.Name
+                       }).Entity;
 
-            dbSymbol.MaxPrice = (double)symbol.PriceFilter!.MaxPrice;
-            dbSymbol.MinPrice = (double)symbol.PriceFilter!.MinPrice;
-            dbSymbol.MaxLeverage = (double)symbol.LeverageFilter!.MaxLeverage;
-            dbSymbol.MinLeverage = (double)symbol.LeverageFilter!.MinLeverage;
-            dbSymbol.LastUpdated = DateTime.UtcNow;
+        dbSymbol.MaxPrice = (double)symbol.PriceFilter!.MaxPrice;
+        dbSymbol.MinPrice = (double)symbol.PriceFilter!.MinPrice;
+        dbSymbol.MaxLeverage = (double)symbol.LeverageFilter!.MaxLeverage;
+        dbSymbol.MinLeverage = (double)symbol.LeverageFilter!.MinLeverage;
+        dbSymbol.LastUpdated = DateTime.UtcNow;
 
-            logger.LogInformation("Symbol {0} prepared", dbSymbol.Name);
-        }
+        logger.LogInformation("Symbol {0} prepared", dbSymbol.Name);
 
         await context.SaveChangesAsync();
     }

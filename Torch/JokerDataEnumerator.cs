@@ -74,7 +74,7 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
 
     private async Task<List<SeriesDataRow>> normalizeData(List<SeriesDataRow> rawData) {
         var normalization = await this.context.Normalizations
-            .Where(n => n.SymbolId == "BTCUSDT")
+            .Where(n => n.SymbolId == this.option.Symbol)
             .Select(x => new { x.Feature, x.Mean, x.Std })
             .ToDictionaryAsync(k => k.Feature, v => (v.Mean, v.Std));
 

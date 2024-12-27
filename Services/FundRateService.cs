@@ -12,7 +12,7 @@ internal class FundRateService(IBybitRestClient restClient, IDbContextFactory<Jo
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         await using var context = await db.CreateDbContextAsync(stoppingToken);
-        await this.Prepare(context, context.BTCFundRates, "BTCUSDT", this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
+        await this.Prepare(context, context.BTCFundRates, this.Opt.Symbol, this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
     }
 
     public async Task Prepare<T>(JokerContext context, DbSet<T> targetDb, string symbolName, DateTime startTime,
