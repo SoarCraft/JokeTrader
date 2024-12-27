@@ -8,8 +8,6 @@ internal class Orchestration(FundRateService fundRate, InterestService interest,
     JokerDataLoader loader) : BackgroundService {
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
-        loader.GetEnumerator();
-
         await symbol.StartAsync(stoppingToken);
         await symbol.ExecuteTask!;
 

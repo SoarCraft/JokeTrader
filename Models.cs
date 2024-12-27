@@ -55,6 +55,18 @@ public class BasicInterest : Concurrency {
 
 public class BTCInterest : BasicInterest;
 
+public class Normalization {
+    public string Feature { get; set; }
+
+    public string SymbolId { get; set; }
+
+    public Symbol Symbol { get; set; }
+
+    public double Mean { get; set; }
+
+    public double Std { get; set; }
+}
+
 public class Symbol : Concurrency {
     [Key]
     public string Name { get; set; }
@@ -76,4 +88,6 @@ public class Symbol : Concurrency {
     public List<BTCFundRate> BTCFundRates { get; set; } = [];
 
     public List<BTCInterest> BTCInterests { get; set; } = [];
+
+    public List<Normalization> Normalizations { get; set; } = [];
 }
