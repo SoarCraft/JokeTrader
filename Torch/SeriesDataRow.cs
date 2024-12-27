@@ -1,8 +1,6 @@
 ﻿namespace JokeTrader.Torch;
 
-internal class SeriesDataRow {
-    public DateTime Timestamp { get; set; }
-
+internal class SeriesFeatures {
     public double OpenPrice { get; set; }
 
     public double Volume { get; set; }
@@ -14,6 +12,19 @@ internal class SeriesDataRow {
     public double FundingRate { get; set; }
 
     public double OpenInterest { get; set; }
+
+    public double[] ToArray() => [
+        this.OpenPrice,
+        this.Volume,
+        this.BuyRatio,
+        this.SellRatio,
+        this.FundingRate,
+        this.OpenInterest
+    ];
+}
+
+internal class SeriesDataRow : SeriesFeatures {
+    public DateTime Timestamp { get; set; }
 
     public int Interval { get; set; }
 }

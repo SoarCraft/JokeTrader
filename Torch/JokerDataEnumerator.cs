@@ -33,7 +33,8 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
     }
 
     public async Task LoadNextBatch() {
-        var queryEndTime = this.currentStartTime.AddMinutes(this.viewSize * this.option.BatchSize);
+        var requiredTimeSteps = this.windowSize + this.option.BatchSize - 1;
+        var queryEndTime = this.currentStartTime.AddMinutes(this.viewSize * requiredTimeSteps);
         var interval = (int)this.option.KlineInterval / 60;
 
         var rawData = await this.context.BTCKLines
@@ -66,22 +67,17 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 Interval = interval
             }).ToListAsync();
 
-        if (this.viewSize == interval) {
-            this.currentBatchData = rawData;
-            this.logger.LogInformation($"Loaded {rawData.Count} rows from {this.currentStartTime} to {queryEndTime}");
-            return;
-        }
+        this.currentBatchData = this.aggregateData(rawData);
+        this.logger.LogInformation($"Load {this.currentBatchData.Count} rows from {this.currentStartTime} to {queryEndTime} with {this.viewSize} viewSize");
+    }
 
-        var aggregated = new List<SeriesDataRow>();
-        var skip = this.viewSize / interval;
+    private List<SeriesDataRow> aggregateData(List<SeriesDataRow> rawData) {
+        if (this.viewSize == rawData.First().Interval)
+            return rawData;
 
-        for (var i = 0; i < rawData.Count; i += skip) {
-            var slice = rawData.Skip(i).Take(skip).ToList();
-
-            if (!slice.Any())
-                break;
-
-            aggregated.Add(new() {
+        var aggregated = rawData
+            .Chunk(this.viewSize / rawData.First().Interval)
+            .Select(slice => new SeriesDataRow {
                 Timestamp = slice.First().Timestamp,
                 OpenPrice = slice.Average(x => x.OpenPrice),
                 Volume = slice.Sum(x => x.Volume),
@@ -90,16 +86,70 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 FundingRate = slice.Average(x => x.FundingRate),
                 OpenInterest = slice.Average(x => x.OpenInterest),
                 Interval = this.viewSize
-            });
-        }
+            }).ToList();
 
-        this.currentBatchData = aggregated; 
-        this.logger.LogInformation($"Aggregated {aggregated.Count} rows from {this.currentStartTime} to {queryEndTime} with {this.viewSize} viewSize");
+        return aggregated;
     }
 
-    public ValueTask DisposeAsync() => throw new NotImplementedException();
+    public async ValueTask DisposeAsync() {
+        this.currentBatchData?.Clear();
+    }
 
-    public ValueTask<bool> MoveNextAsync() => throw new NotImplementedException();
+    public async ValueTask<bool> MoveNextAsync() {
+        if (this.currentBatchData == null) {
+            await this.LoadNextBatch();
+            this.currentIndex = 0;
+            return true;
+        }
 
-    public (torch.Tensor, torch.Tensor) Current { get; }
+        if (this.currentIndex + this.windowSize + this.option.BatchSize >= this.currentBatchData.Count) {
+            this.currentStartTime = this.currentBatchData[this.currentIndex].Timestamp;
+            await this.LoadNextBatch();
+            this.currentIndex = 0;
+        } else
+            this.currentIndex++;
+
+        return this.currentBatchData is not null &&
+               this.currentBatchData.Count > this.windowSize + this.option.BatchSize;
+    }
+
+    public (torch.Tensor, torch.Tensor) Current {
+        get {
+            if (this.currentBatchData is null || this.currentIndex < 0)
+                throw new InvalidOperationException("Invalid current batch data");
+
+            var featDim = this.currentBatchData.First().ToArray().Length;
+            var input = torch.zeros([
+                this.option.BatchSize,
+                this.windowSize,
+                featDim
+            ]);
+
+            var target = torch.zeros([
+                this.option.BatchSize,
+                2
+            ]);
+
+            for (var batch = 0; batch < this.option.BatchSize; batch++) {
+                for (var window = 0; window < this.windowSize; window++) {
+                    var dataIndex = this.currentIndex + batch + window;
+                    var features = this.currentBatchData[dataIndex].ToArray();
+
+                    for (var feat = 0; feat < featDim; feat++)
+                        input[batch, window, feat] = features[feat];
+                }
+
+                var lastIndex = this.currentIndex + batch + this.windowSize - 1;
+
+                var lastPrice = this.currentBatchData[lastIndex].OpenPrice;
+                var nextPrice = this.currentBatchData[lastIndex + 1].OpenPrice;
+
+                var priceChange = (nextPrice - lastPrice) / lastPrice;
+                target[batch, 0] = Math.Sign(priceChange);
+                target[batch, 1] = Math.Abs(priceChange);
+            }
+
+            return (input, target);
+        }
+    }
 }
