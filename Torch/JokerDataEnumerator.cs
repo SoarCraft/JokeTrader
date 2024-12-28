@@ -4,6 +4,17 @@ using Microsoft.EntityFrameworkCore;
 using TorchSharp;
 
 internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tensor)> {
+    public JokerDataEnumerator(JokerContext context, JokerOption option,
+        int viewSize, int windowSize, ILogger<JokerDataEnumerator> logger) {
+        this.context = context;
+        this.option = option;
+        this.viewSize = viewSize;
+        this.windowSize = windowSize;
+        this.logger = logger;
+
+        this.currentStartTime = this.option.HistoryStart;
+    }
+
     private JokerContext context { get; }
 
     private JokerOption option { get; }
@@ -18,26 +29,74 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
 
     private List<SeriesDataRow>? currentBatchData { get; set; }
 
-    public JokerDataEnumerator(JokerContext context, JokerOption option,
-        int viewSize, int windowSize, ILogger<JokerDataEnumerator> logger) {
-        this.context = context;
-        this.option = option;
-        this.viewSize = viewSize;
-        this.windowSize = windowSize;
-        this.logger = logger;
-
-        this.currentStartTime = this.option.HistoryStart;
+    public async ValueTask DisposeAsync() {
+        this.currentBatchData?.Clear();
+        this.logger.LogInformation("Dispose current batch data");
     }
 
-    public async Task LoadNextBatch() {
+    public async ValueTask<bool> MoveNextAsync() {
+        if (this.currentBatchData == null) {
+            var load = await this.LoadNextBatch();
+            return load;
+        }
+
+        this.currentStartTime = this.currentBatchData[^1].Timestamp;
+        var load1 = await this.LoadNextBatch();
+
+        return load1 &&
+               this.currentBatchData.Count > this.windowSize + this.option.BatchSize - 2;
+    }
+
+    public (torch.Tensor, torch.Tensor) Current {
+        get {
+            if (this.currentBatchData is null)
+                throw new InvalidOperationException("Invalid current batch data");
+
+            var featDim = this.currentBatchData.First().ToArray().Length;
+            var input = torch.zeros([
+                this.option.BatchSize,
+                this.windowSize - 1,
+                featDim
+            ], torch.ScalarType.Float32, this.option.Device);
+
+            var target = torch.zeros([
+                this.option.BatchSize,
+                2
+            ], torch.ScalarType.Float32, this.option.Device);
+
+            for (var batch = 0; batch < this.option.BatchSize; batch++) {
+                for (var window = 0; window < this.windowSize - 1; window++) {
+                    var dataIndex = batch + window;
+                    var features = this.currentBatchData[dataIndex].ToArray();
+
+                    for (var feat = 0; feat < featDim; feat++)
+                        input[batch, window, feat] = features[feat];
+                }
+
+                var lastIndex = batch + this.windowSize - 2;
+
+                var lastPrice = this.currentBatchData[lastIndex].OpenPrice;
+                var nextPrice = this.currentBatchData[lastIndex + 1].OpenPrice;
+
+                var priceChange = (nextPrice - lastPrice) / lastPrice;
+                target[batch, 0] = priceChange > 0 ? 1 : 0;
+                target[batch, 1] = Math.Abs(priceChange);
+            }
+
+            return (input, target);
+        }
+    }
+
+    public async Task<bool> LoadNextBatch() {
         this.currentBatchData?.Clear();
 
         var requiredTimeSteps = this.windowSize + this.option.BatchSize - 1;
         var queryEndTime = this.currentStartTime.AddMinutes(this.viewSize * requiredTimeSteps);
+
         var interval = (int)this.option.KlineInterval / 60;
+        var requiredDataNum = requiredTimeSteps * this.viewSize / interval;
 
         var rawData = await this.context.BTCKLines
-            .OrderBy(k => k.StartTime)
             .Where(k => k.StartTime >= this.currentStartTime && k.StartTime < queryEndTime)
             .Select(k => new {
                 KLine = k,
@@ -66,10 +125,17 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 Interval = interval
             }).ToListAsync();
 
+        if (rawData.Count < requiredDataNum) {
+            this.logger.LogWarning($"Insufficient data from {this.currentStartTime} to {queryEndTime}");
+            return false;
+        }
+
         var aggregate = this.aggregateData(rawData);
         this.currentBatchData = await this.normalizeData(aggregate);
 
-        this.logger.LogInformation($"Load {this.currentBatchData.Count} rows from {this.currentStartTime} to {queryEndTime} with {this.viewSize} viewSize");
+        this.logger.LogInformation(
+            $"Load {this.currentBatchData.Count} rows from {this.currentStartTime} to {queryEndTime} with {this.viewSize} viewSize");
+        return true;
     }
 
     private async Task<List<SeriesDataRow>> normalizeData(List<SeriesDataRow> rawData) {
@@ -119,63 +185,5 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
             }).ToList();
 
         return aggregated;
-    }
-
-    public async ValueTask DisposeAsync() {
-        this.currentBatchData?.Clear();
-        this.logger.LogInformation("Dispose current batch data");
-  }
-
-    public async ValueTask<bool> MoveNextAsync() {
-        if (this.currentBatchData == null) {
-            await this.LoadNextBatch();
-            return true;
-        }
-
-        this.currentStartTime = this.currentBatchData.Last().Timestamp;
-        await this.LoadNextBatch();
-
-        return this.currentBatchData is not null &&
-               this.currentBatchData.Count > this.windowSize + this.option.BatchSize - 2;
-    }
-
-    public (torch.Tensor, torch.Tensor) Current {
-        get {
-            if (this.currentBatchData is null)
-                throw new InvalidOperationException("Invalid current batch data");
-
-            var featDim = this.currentBatchData.First().ToArray().Length;
-            var input = torch.zeros([
-                this.option.BatchSize,
-                this.windowSize - 1,
-                featDim
-            ], torch.ScalarType.Float32, this.option.Device);
-
-            var target = torch.zeros([
-                this.option.BatchSize,
-                2
-            ], torch.ScalarType.Float32, this.option.Device);
-
-            for (var batch = 0; batch < this.option.BatchSize; batch++) {
-                for (var window = 0; window < this.windowSize - 1; window++) {
-                    var dataIndex = batch + window;
-                    var features = this.currentBatchData[dataIndex].ToArray();
-
-                    for (var feat = 0; feat < featDim; feat++)
-                        input[batch, window, feat] = features[feat];
-                }
-
-                var lastIndex = batch + this.windowSize - 2;
-
-                var lastPrice = this.currentBatchData[lastIndex].OpenPrice;
-                var nextPrice = this.currentBatchData[lastIndex + 1].OpenPrice;
-
-                var priceChange = (nextPrice - lastPrice) / lastPrice;
-                target[batch, 0] = priceChange > 0 ? 1 : 0;
-                target[batch, 1] = Math.Abs(priceChange);
-            }
-
-            return (input, target);
-        }
     }
 }
