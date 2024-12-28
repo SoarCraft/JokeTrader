@@ -31,7 +31,7 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
 
     public async ValueTask DisposeAsync() {
         this.currentBatchData?.Clear();
-        this.logger.LogInformation("Dispose current batch data");
+        this.logger.LogDebug("Dispose current batch data");
     }
 
     public async ValueTask<bool> MoveNextAsync() {
@@ -128,11 +128,11 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
         var aggregate = this.aggregateData(rawData);
         this.currentBatchData = await this.normalizeData(aggregate);
 
-        this.logger.LogInformation(
+        this.logger.LogDebug(
             $"Load {rawData.Count} rows required {requiredDataNum} to {this.currentBatchData.Count} " +
             $"from {this.currentStartTime} to {queryEndTime} with {this.viewSize} viewSize");
 
-        if (this.currentBatchData.Count >= requiredTimeSteps)
+        if (this.currentBatchData.Count >= this.windowSize)
             return true;
 
         this.logger.LogInformation("Not enough data for next one batch");

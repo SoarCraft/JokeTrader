@@ -4,7 +4,7 @@ using Bybit.Net.Enums;
 using TorchSharp;
 
 internal class JokerOption {
-    public DateTime HistoryStart { get; } = new(2024, 11, 1, 0, 0, 0, DateTimeKind.Utc);
+    public DateTime HistoryStart { get; } = new(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
     public DateTime HistoryEnd { get; } = new(2024, 12, 1, 0, 0, 0, DateTimeKind.Utc);
 

@@ -44,7 +44,7 @@ internal class TrainService : BackgroundService {
 
     public async Task TrainOneEpoch(int epoch, CancellationToken stoppingToken) {
         this.model.train();
-        var batchIndex = 0;
+        var step = 0;
 
         await foreach (var (input, target) in this.loader.WithCancellation(stoppingToken)) {
             this.optimizer.zero_grad();
@@ -58,16 +58,16 @@ internal class TrainService : BackgroundService {
             loss.backward();
             this.optimizer.step();
 
-            if (batchIndex % 10 == 0) {
+            if (step % 10 == 0) {
                 this.logger.LogInformation(
-                    $"Train Epoch {epoch}, Batch {batchIndex}, Total Loss: {loss.item<float>():F4}");
-                this.writer.add_scalar("Train/TotalLoss", loss.item<float>(), epoch * 100 + batchIndex);
+                    $"Train Epoch {epoch}, Step {step}, Total Loss: {loss.item<float>():F4}");
+                this.writer.add_scalar("Train/TotalLoss", loss.item<float>(), epoch * 100 + step);
                 this.writer.add_scalar("Train/ClassificationLoss", classificationLoss.item<float>(),
-                    epoch * 100 + batchIndex);
-                this.writer.add_scalar("Train/RegressionLoss", regressionLoss.item<float>(), epoch * 100 + batchIndex);
+                    epoch * 100 + step);
+                this.writer.add_scalar("Train/RegressionLoss", regressionLoss.item<float>(), epoch * 100 + step);
             }
 
-            batchIndex++;
+            step++;
             input.Dispose();
             target.Dispose();
         }
@@ -76,7 +76,7 @@ internal class TrainService : BackgroundService {
     public async Task<bool> ValidateOneEpoch(int epoch, CancellationToken stoppingToken) {
         this.model.eval();
         var totalLoss = 0.0f;
-        var batchIndex = 0;
+        var step = 0;
 
         await foreach (var (input, target) in this.loader.WithCancellation(stoppingToken)) {
             using var _ = no_grad();
@@ -88,20 +88,20 @@ internal class TrainService : BackgroundService {
 
             totalLoss += loss.item<float>();
 
-            if (batchIndex % 10 == 0) {
+            if (step % 10 == 0) {
                 this.logger.LogInformation(
-                    $"Val Epoch {epoch}, Batch {batchIndex}, Total Loss: {loss.item<float>():F4}");
-                this.writer.add_scalar("Validation/TotalLoss", loss.item<float>(), epoch * 100 + batchIndex);
+                    $"Val Epoch {epoch}, Step {step}, Total Loss: {loss.item<float>():F4}");
+                this.writer.add_scalar("Validation/TotalLoss", loss.item<float>(), epoch * 100 + step);
                 this.writer.add_scalar("Validation/ClassificationLoss", classificationLoss.item<float>(),
-                    epoch * 100 + batchIndex);
+                    epoch * 100 + step);
                 this.writer.add_scalar("Validation/RegressionLoss", regressionLoss.item<float>(),
-                    epoch * 100 + batchIndex);
+                    epoch * 100 + step);
             }
 
-            batchIndex++;
+            step++;
         }
 
-        var avgLoss = totalLoss / batchIndex;
+        var avgLoss = totalLoss / step;
         this.scheduler.step(avgLoss);
 
         this.logger.LogInformation($"Validation Loss after epoch {epoch}: {avgLoss:F4}");
