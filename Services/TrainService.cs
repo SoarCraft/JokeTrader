@@ -30,7 +30,7 @@ internal class TrainService : BackgroundService {
 
     private AdamW optimizer { get; }
 
-    private BCEWithLogitsLoss bce { get; } = nn.BCEWithLogitsLoss();
+    private BCELoss bce { get; } = nn.BCELoss();
 
     private HuberLoss huber { get; } = nn.HuberLoss();
 
@@ -82,6 +82,11 @@ internal class TrainService : BackgroundService {
         var step = 0;
 
         await foreach (var (input, target) in this.loader.WithCancellation(stoppingToken)) {
+            if (this.valGlobalStep % 2 == 0) {
+                this.valGlobalStep++;
+                continue;
+            }
+
             using var _ = no_grad();
             var output = this.model.forward(input);
 
@@ -91,7 +96,7 @@ internal class TrainService : BackgroundService {
 
             totalLoss += loss.item<float>();
 
-            if (this.valGlobalStep % 10 == 0) {
+            if (step % 5 == 0) {
                 this.logger.LogInformation(
                     $"Val Epoch {epoch}, Global Step {this.valGlobalStep}, Total Loss: {loss.item<float>():F4}");
                 this.writer.add_scalar("Validation/TotalLoss", loss.item<float>(), this.valGlobalStep);
@@ -110,13 +115,15 @@ internal class TrainService : BackgroundService {
 
                 this.writer.add_scalar("Compare/ClassificationPrediction", classificationPrediction, this.valGlobalStep);
                 this.writer.add_scalar("Compare/ClassificationTarget", classificationTarget, this.valGlobalStep);
+                this.writer.add_scalar("Compare/ClassificationDiff", classificationPrediction - classificationTarget, this.valGlobalStep);
+
                 this.writer.add_scalar("Compare/RegressionPrediction", regressionPrediction, this.valGlobalStep);
                 this.writer.add_scalar("Compare/RegressionTarget", regressionTarget, this.valGlobalStep);
+                this.writer.add_scalar("Compare/RegressionDiff", regressionPrediction - regressionTarget, this.valGlobalStep);
             }
 
             step++;
             this.valGlobalStep++;
-            break;
         }
 
         var avgLoss = totalLoss / step;
@@ -146,7 +153,11 @@ internal class TrainService : BackgroundService {
     }
 
     private void saveCheckpoint(int epoch) {
-        var checkpointPath = Path.Combine("checkpoints", $"best_{epoch}.pt");
+        const string checkpointDir = "checkpoints";
+        if (!Directory.Exists(checkpointDir))
+            Directory.CreateDirectory(checkpointDir);
+
+        var checkpointPath = Path.Combine(checkpointDir, $"best_{epoch}.pt");
         this.model.save(checkpointPath);
         this.logger.LogInformation($"Checkpoint saved at {checkpointPath}");
     }
