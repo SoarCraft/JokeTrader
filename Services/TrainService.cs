@@ -125,6 +125,7 @@ internal class TrainService : BackgroundService {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         for (var epoch = 1; epoch <= this.option.Epochs; epoch++) {
             this.logger.LogInformation($"Starting epoch {epoch}/{this.option.Epochs}");
+
             await this.TrainOneEpoch(epoch, stoppingToken);
             var improved = await this.ValidateOneEpoch(epoch, stoppingToken);
 
