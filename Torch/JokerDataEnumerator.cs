@@ -35,16 +35,12 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
     }
 
     public async ValueTask<bool> MoveNextAsync() {
-        if (this.currentBatchData == null) {
-            var load = await this.LoadNextBatch();
-            return load;
-        }
+        if (this.currentBatchData == null)
+            return await this.LoadNextBatch();
 
         this.currentStartTime = this.currentBatchData[^1].Timestamp;
-        var load1 = await this.LoadNextBatch();
 
-        return load1 &&
-               this.currentBatchData.Count > this.windowSize + this.option.BatchSize - 2;
+        return await this.LoadNextBatch();
     }
 
     public (torch.Tensor, torch.Tensor) Current {
@@ -52,19 +48,23 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
             if (this.currentBatchData is null)
                 throw new InvalidOperationException("Invalid current batch data");
 
+            var availableBatch = this.currentBatchData.Count - this.windowSize + 1;
+            if (this.option.BatchSize > availableBatch)
+                this.logger.LogInformation("Not enough data for batch, reduced this batch size to {0}", availableBatch);
+
             var featDim = this.currentBatchData.First().ToArray().Length;
             var input = torch.zeros([
-                this.option.BatchSize,
+                availableBatch,
                 this.windowSize - 1,
                 featDim
             ], torch.ScalarType.Float32, this.option.Device);
 
             var target = torch.zeros([
-                this.option.BatchSize,
+                availableBatch,
                 2
             ], torch.ScalarType.Float32, this.option.Device);
 
-            for (var batch = 0; batch < this.option.BatchSize; batch++) {
+            for (var batch = 0; batch < availableBatch; batch++) {
                 for (var window = 0; window < this.windowSize - 1; window++) {
                     var dataIndex = batch + window;
                     var features = this.currentBatchData[dataIndex].ToArray();
@@ -125,17 +125,18 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 Interval = interval
             }).ToListAsync();
 
-        if (rawData.Count < requiredDataNum) {
-            this.logger.LogWarning($"Insufficient data from {this.currentStartTime} to {queryEndTime}");
-            return false;
-        }
-
         var aggregate = this.aggregateData(rawData);
         this.currentBatchData = await this.normalizeData(aggregate);
 
         this.logger.LogInformation(
-            $"Load {this.currentBatchData.Count} rows from {this.currentStartTime} to {queryEndTime} with {this.viewSize} viewSize");
-        return true;
+            $"Load {rawData.Count} rows required {requiredDataNum} to {this.currentBatchData.Count} " +
+            $"from {this.currentStartTime} to {queryEndTime} with {this.viewSize} viewSize");
+
+        if (this.currentBatchData.Count >= requiredTimeSteps)
+            return true;
+
+        this.logger.LogInformation("Not enough data for next one batch");
+        return false;
     }
 
     private async Task<List<SeriesDataRow>> normalizeData(List<SeriesDataRow> rawData) {

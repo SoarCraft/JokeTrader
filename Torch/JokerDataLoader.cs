@@ -21,7 +21,7 @@ internal class JokerDataLoader(JokerContext context, IOptions<JokerOption> optio
         var randomViewSize = ViewSizes[Random.Shared.Next(ViewSizes.Length)];
         var randomWindowSize = Random.Shared.Next(this.Opt.MinWindow, this.Opt.MaxWindow + 1);
 
-        logger.LogInformation($"View size: {randomViewSize}, Window size: {randomWindowSize}");
-        return new JokerDataEnumerator(context, this.Opt, 1440, 35, enumLogger);
+        logger.LogInformation($"Random View size: {randomViewSize}, Window size: {randomWindowSize}");
+        return new JokerDataEnumerator(context, this.Opt, randomViewSize, randomWindowSize, enumLogger);
     }
 }
