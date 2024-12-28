@@ -99,8 +99,26 @@ internal class TrainService : BackgroundService {
                     classificationLoss.item<float>(), this.valGlobalStep);
                 this.writer.add_scalar("Validation/RegressionLoss", regressionLoss.item<float>(), this.valGlobalStep);
 
-                this.writer.add_histogram("Validation/Predictions", output[.., 0].cpu(), this.valGlobalStep);
-                this.writer.add_histogram("Validation/Targets", target[.., 0].cpu(), this.valGlobalStep);
+                var outputCpu = output.cpu().detach();
+                var targetCpu = target.cpu().detach();
+
+                this.writer.add_scalars(
+                    "Validation/ClassificationComparison",
+                    new Dictionary<string, float> {
+                        { "Prediction", outputCpu[.., 0].mean().item<float>() },
+                        { "Target", targetCpu[.., 0].mean().item<float>() }
+                    },
+                    this.valGlobalStep
+                );
+
+                this.writer.add_scalars(
+                    "Validation/RegressionComparison",
+                    new Dictionary<string, float> {
+                        { "Prediction", outputCpu[.., 1].mean().item<float>() },
+                        { "Target", targetCpu[.., 1].mean().item<float>() }
+                    },
+                    this.valGlobalStep
+                );
             }
 
             step++;
