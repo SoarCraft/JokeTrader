@@ -36,10 +36,10 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
         );
 
         this.outputHead = Sequential(
-            Linear(embedDim * 2, embedDim),
+            Linear(embedDim, embedDim / 2),
             ReLU(),
             Dropout(dropoutRate),
-            Linear(embedDim, 2)
+            Linear(embedDim / 2, 2)
         );
 
         this.RegisterComponents();
@@ -53,19 +53,10 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
 
         input = this.transformer.forward(input, null, null);
 
-        var historyFeatures = input[.., ..^1, ..];
-        var lastFeatures = input[.., -1, ..];
+        var attentionWeights = softmax(matmul(input, input.transpose(-2, -1)), -1);
 
-        var attention = matmul(
-            historyFeatures,
-            lastFeatures.unsqueeze(-1)
-        ).squeeze(-1);
+        var globalFeatures = matmul(attentionWeights, input).mean([1]);
 
-        var attentionWeights = softmax(attention, 1).unsqueeze(-1);
-        var globalFeatures = (historyFeatures * attentionWeights).sum(1);
-
-        input = cat([globalFeatures, lastFeatures], -1);
-
-        return this.outputHead.forward(input).MoveToOuterDisposeScope();
+        return this.outputHead.forward(globalFeatures).MoveToOuterDisposeScope();
     }
 }

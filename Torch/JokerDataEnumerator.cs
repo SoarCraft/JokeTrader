@@ -29,9 +29,10 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
 
     private List<SeriesDataRow>? currentBatchData { get; set; }
 
-    public async ValueTask DisposeAsync() {
+    public ValueTask DisposeAsync() {
         this.currentBatchData?.Clear();
         this.logger.LogDebug("Dispose current batch data");
+        return ValueTask.CompletedTask;
     }
 
     public async ValueTask<bool> MoveNextAsync() {
@@ -57,20 +58,19 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 availableBatch,
                 this.windowSize - 1,
                 featDim
-            ], torch.ScalarType.Float32, this.option.Device);
+            ], torch.ScalarType.Float32);
 
             var target = torch.zeros([
                 availableBatch,
                 2
-            ], torch.ScalarType.Float32, this.option.Device);
+            ], torch.ScalarType.Float32);
 
             for (var batch = 0; batch < availableBatch; batch++) {
                 for (var window = 0; window < this.windowSize - 1; window++) {
                     var dataIndex = batch + window;
                     var features = this.currentBatchData[dataIndex].ToArray();
-
-                    for (var feat = 0; feat < featDim; feat++)
-                        input[batch, window, feat] = features[feat];
+                    var featureTensor = torch.tensor(features, torch.ScalarType.Float32);
+                    input[batch, window] = featureTensor;
                 }
 
                 var lastIndex = batch + this.windowSize - 2;
@@ -83,7 +83,7 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 target[batch, 1] = Math.Abs(priceChange);
             }
 
-            return (input, target);
+            return (input.to(this.option.Device), target.to(this.option.Device));
         }
     }
 

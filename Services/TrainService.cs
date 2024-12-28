@@ -38,7 +38,7 @@ internal class TrainService : BackgroundService {
         this.model = new(featureDim, this.option.EmbedDim, this.option.NumHeads, this.option.NumLayers);
         this.model.to(this.option.Device);
 
-        this.optimizer = optim.AdamW(this.model.parameters(), lr: 1e-3, weight_decay: 1e-2);
+        this.optimizer = optim.AdamW(this.model.parameters(), lr: 1e-2, weight_decay: 1e-2);
         this.scheduler = optim.lr_scheduler.ReduceLROnPlateau(this.optimizer, patience: 5);
     }
 
@@ -54,7 +54,7 @@ internal class TrainService : BackgroundService {
             var classificationLoss = this.bce.forward(output[.., 0], target[.., 0]);
             var regressionLoss = this.huber.forward(output[.., 1], target[.., 1]);
 
-            var loss = this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss;
+            var loss = (this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss) * 10;
             loss.backward();
             this.optimizer.step();
 
@@ -84,7 +84,7 @@ internal class TrainService : BackgroundService {
 
             var classificationLoss = this.bce.forward(output[.., 0], target[.., 0]);
             var regressionLoss = this.huber.forward(output[.., 1], target[.., 1]);
-            var loss = this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss;
+            var loss = (this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss) * 10;
 
             totalLoss += loss.item<float>();
 
@@ -99,6 +99,7 @@ internal class TrainService : BackgroundService {
             }
 
             step++;
+            break;
         }
 
         var avgLoss = totalLoss / step;

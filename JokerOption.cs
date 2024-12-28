@@ -18,7 +18,7 @@ internal class JokerOption {
 
     public DataPeriod Period => DataPeriod.FiveMinutes;
 
-    public int BatchSize => 32;
+    public int BatchSize => 128;
 
     public int Epochs => 200;
 
@@ -26,13 +26,13 @@ internal class JokerOption {
 
     public int MinWindow => 10;
 
-    public int NumHeads => 8;
+    public int NumHeads => 16;
 
-    public int EmbedDim => 256;
+    public int EmbedDim => 1024;
 
-    public int NumLayers => 6;
+    public int NumLayers => 24;
 
-    public double Alpha => 0.5;
+    public double Alpha => 0.7;
 
     public int Patience => 10;
 
