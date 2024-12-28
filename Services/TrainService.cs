@@ -102,23 +102,16 @@ internal class TrainService : BackgroundService {
                 var outputCpu = output.cpu().detach();
                 var targetCpu = target.cpu().detach();
 
-                this.writer.add_scalars(
-                    "Validation/ClassificationComparison",
-                    new Dictionary<string, float> {
-                        { "Prediction", outputCpu[.., 0].mean().item<float>() },
-                        { "Target", targetCpu[.., 0].mean().item<float>() }
-                    },
-                    this.valGlobalStep
-                );
+                var classificationPrediction = outputCpu[0, 0].item<float>();
+                var classificationTarget = targetCpu[0, 0].item<float>();
 
-                this.writer.add_scalars(
-                    "Validation/RegressionComparison",
-                    new Dictionary<string, float> {
-                        { "Prediction", outputCpu[.., 1].mean().item<float>() },
-                        { "Target", targetCpu[.., 1].mean().item<float>() }
-                    },
-                    this.valGlobalStep
-                );
+                var regressionPrediction = outputCpu[0, 1].item<float>();
+                var regressionTarget = targetCpu[0, 1].item<float>();
+
+                this.writer.add_scalar("Compare/ClassificationPrediction", classificationPrediction, this.valGlobalStep);
+                this.writer.add_scalar("Compare/ClassificationTarget", classificationTarget, this.valGlobalStep);
+                this.writer.add_scalar("Compare/RegressionPrediction", regressionPrediction, this.valGlobalStep);
+                this.writer.add_scalar("Compare/RegressionTarget", regressionTarget, this.valGlobalStep);
             }
 
             step++;
@@ -135,6 +128,8 @@ internal class TrainService : BackgroundService {
         if (avgLoss < this.bestValidationLoss) {
             this.bestValidationLoss = avgLoss;
             this.patienceCounter = 0;
+
+            this.saveCheckpoint(epoch);
         } else {
             this.patienceCounter++;
             this.logger.LogInformation(
@@ -148,6 +143,12 @@ internal class TrainService : BackgroundService {
         }
 
         return true;
+    }
+
+    private void saveCheckpoint(int epoch) {
+        var checkpointPath = Path.Combine("checkpoints", $"best_{epoch}.pt");
+        this.model.save(checkpointPath);
+        this.logger.LogInformation($"Checkpoint saved at {checkpointPath}");
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
