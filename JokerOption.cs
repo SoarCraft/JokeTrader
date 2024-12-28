@@ -20,7 +20,7 @@ internal class JokerOption {
 
     public int BatchSize => 32;
 
-    public int Epochs => 100;
+    public int Epochs => 200;
 
     public int MaxWindow => 40;
 
@@ -33,6 +33,8 @@ internal class JokerOption {
     public int NumLayers => 6;
 
     public double Alpha => 0.5;
+
+    public int Patience => 10;
 
     public torch.Device Device { get; } = torch.cuda_is_available() ? torch.CUDA : torch.CPU;
 }

@@ -25,6 +25,10 @@ internal class TrainService : BackgroundService {
 
     private SummaryWriter writer { get; } = utils.tensorboard.SummaryWriter();
 
+    private int patienceCounter { get; set; }
+
+    private double bestValidationLoss { get; set; } = double.MaxValue;
+
     public TrainService(JokerDataLoader loader, IOptions<JokerOption> options, ILogger<TrainService> logger) {
         this.loader = loader;
         this.option = options.Value;
@@ -67,7 +71,7 @@ internal class TrainService : BackgroundService {
         }
     }
 
-    public async Task ValidateOneEpoch(int epoch, CancellationToken stoppingToken) {
+    public async Task<bool> ValidateOneEpoch(int epoch, CancellationToken stoppingToken) {
         this.model.eval();
         var totalLoss = 0.0f;
         var batchIndex = 0;
@@ -100,13 +104,32 @@ internal class TrainService : BackgroundService {
 
         this.logger.LogInformation($"Validation Loss after epoch {epoch}: {avgLoss:F4}");
         this.writer.add_scalar("Validation/Loss", avgLoss, epoch);
+
+        if (avgLoss < this.bestValidationLoss) {
+            this.bestValidationLoss = avgLoss;
+            this.patienceCounter = 0;
+        } else {
+            this.patienceCounter++;
+            this.logger.LogInformation($"Validation loss did not improve. Patience counter: {this.patienceCounter}/{this.option.Patience}");
+
+            if (this.patienceCounter < this.option.Patience)
+                return true;
+
+            this.logger.LogInformation("Early stopping triggered.");
+            return false;
+        }
+
+        return true;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         for (var epoch = 1; epoch <= this.option.Epochs; epoch++) {
             this.logger.LogInformation($"Starting epoch {epoch}/{this.option.Epochs}");
             await this.TrainOneEpoch(epoch, stoppingToken);
-            await this.ValidateOneEpoch(epoch, stoppingToken);
+            var improved = await this.ValidateOneEpoch(epoch, stoppingToken);
+
+            if (!improved)
+                break;
         }
     }
 }
