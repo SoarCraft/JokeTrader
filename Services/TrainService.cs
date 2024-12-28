@@ -68,6 +68,8 @@ internal class TrainService : BackgroundService {
             }
 
             batchIndex++;
+            input.Dispose();
+            target.Dispose();
         }
     }
 

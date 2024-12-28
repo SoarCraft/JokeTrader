@@ -18,8 +18,6 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
 
     private List<SeriesDataRow>? currentBatchData { get; set; }
 
-    private int currentIndex { get; set; }
-
     public JokerDataEnumerator(JokerContext context, JokerOption option,
         int viewSize, int windowSize, ILogger<JokerDataEnumerator> logger) {
         this.context = context;
@@ -29,7 +27,6 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
         this.logger = logger;
 
         this.currentStartTime = this.option.HistoryStart;
-        this.currentIndex = -1;
     }
 
     public async Task LoadNextBatch() {
@@ -99,8 +96,6 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
             data.Volume = volumeStd == 0
                 ? 0
                 : (data.Volume - volumeMean) / volumeStd;
-            
-            data.Interval /= Math.Max(1, JokerDataLoader.ViewSizes.Max());
         }
 
         return rawData;
@@ -128,35 +123,31 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
 
     public async ValueTask DisposeAsync() {
         this.currentBatchData?.Clear();
-    }
+        this.logger.LogInformation("Dispose current batch data");
+  }
 
     public async ValueTask<bool> MoveNextAsync() {
         if (this.currentBatchData == null) {
             await this.LoadNextBatch();
-            this.currentIndex = 0;
             return true;
         }
 
-        if (this.currentIndex + this.windowSize + this.option.BatchSize >= this.currentBatchData.Count) {
-            this.currentStartTime = this.currentBatchData[this.currentIndex].Timestamp;
-            await this.LoadNextBatch();
-            this.currentIndex = 0;
-        } else
-            this.currentIndex++;
+        this.currentStartTime = this.currentBatchData.Last().Timestamp;
+        await this.LoadNextBatch();
 
         return this.currentBatchData is not null &&
-               this.currentBatchData.Count > this.windowSize + this.option.BatchSize;
+               this.currentBatchData.Count > this.windowSize + this.option.BatchSize - 2;
     }
 
     public (torch.Tensor, torch.Tensor) Current {
         get {
-            if (this.currentBatchData is null || this.currentIndex < 0)
+            if (this.currentBatchData is null)
                 throw new InvalidOperationException("Invalid current batch data");
 
             var featDim = this.currentBatchData.First().ToArray().Length;
             var input = torch.zeros([
                 this.option.BatchSize,
-                this.windowSize,
+                this.windowSize - 1,
                 featDim
             ], torch.ScalarType.Float32, this.option.Device);
 
@@ -166,15 +157,15 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
             ], torch.ScalarType.Float32, this.option.Device);
 
             for (var batch = 0; batch < this.option.BatchSize; batch++) {
-                for (var window = 0; window < this.windowSize; window++) {
-                    var dataIndex = this.currentIndex + batch + window;
+                for (var window = 0; window < this.windowSize - 1; window++) {
+                    var dataIndex = batch + window;
                     var features = this.currentBatchData[dataIndex].ToArray();
 
                     for (var feat = 0; feat < featDim; feat++)
                         input[batch, window, feat] = features[feat];
                 }
 
-                var lastIndex = this.currentIndex + batch + this.windowSize - 1;
+                var lastIndex = batch + this.windowSize - 2;
 
                 var lastPrice = this.currentBatchData[lastIndex].OpenPrice;
                 var nextPrice = this.currentBatchData[lastIndex + 1].OpenPrice;
