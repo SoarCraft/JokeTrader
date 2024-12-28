@@ -26,5 +26,13 @@ internal class JokerOption {
 
     public int MinWindow => 10;
 
+    public int NumHeads => 8;
+
+    public int EmbedDim => 256;
+
+    public int NumLayers => 6;
+
+    public double Alpha => 0.5;
+
     public torch.Device Device { get; } = torch.cuda_is_available() ? torch.CUDA : torch.CPU;
 }

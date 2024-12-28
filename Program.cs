@@ -23,6 +23,7 @@ builder.Services.AddTransient<InterestService>();
 builder.Services.AddTransient<ZScoreService>();
 
 builder.Services.AddSingleton<JokerDataLoader>();
+builder.Services.AddSingleton<TrainService>();
 builder.Services.AddHostedService<Orchestration>();
 
 var app = builder.Build();

@@ -1,11 +1,10 @@
 ﻿namespace JokeTrader.Services;
 
 using System.Threading.Tasks;
-using Torch;
 
 internal class Orchestration(FundRateService fundRate, InterestService interest, 
     KLineService kLine, RatioService ratio, SymbolService symbol,
-    ZScoreService zScore, JokerDataLoader loader) : BackgroundService {
+    ZScoreService zScore, TrainService train) : BackgroundService {
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         await symbol.StartAsync(stoppingToken);
@@ -25,5 +24,7 @@ internal class Orchestration(FundRateService fundRate, InterestService interest,
 
         await zScore.StartAsync(stoppingToken);
         await zScore.ExecuteTask!;
+
+        await train.StartAsync(stoppingToken);
     }
 }

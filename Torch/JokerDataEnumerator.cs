@@ -180,7 +180,7 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 var nextPrice = this.currentBatchData[lastIndex + 1].OpenPrice;
 
                 var priceChange = (nextPrice - lastPrice) / lastPrice;
-                target[batch, 0] = Math.Sign(priceChange);
+                target[batch, 0] = priceChange > 0 ? 1 : 0;
                 target[batch, 1] = Math.Abs(priceChange);
             }
 
