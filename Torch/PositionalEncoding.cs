@@ -18,10 +18,10 @@ internal class PositionalEncoding() : Module<Tensor, Tensor>(nameof(PositionalEn
         for (var i = 0; i < (embedDim - 1) / 2; i++) {
             var div = exp(-log(10000.0) * (2 * i) / (embedDim - 1));
 
-            posEncoding[.., .., 2 * i] = sin(intervals.unsqueeze(-1) * div);
+            posEncoding[.., .., 2 * i] = sin(intervals.unsqueeze(0) * div);
 
             if (2 * i + 1 < embedDim - 1)
-                posEncoding[.., .., 2 * i + 1] = cos(intervals.unsqueeze(-1) * div);
+                posEncoding[.., .., 2 * i + 1] = cos(intervals.unsqueeze(0) * div);
         }
 
         return (features + posEncoding).MoveToOuterDisposeScope();

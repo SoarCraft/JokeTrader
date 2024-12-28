@@ -11,7 +11,7 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
 
     private readonly PositionalEncoding posEncoding;
 
-    private readonly ModuleList<TransformerBlock> transformerBlocks;
+    private readonly TransformerEncoder transformer;
 
     public JokerTransformer(int featureDim, int embedDim, int numHeads,
         int numLayers, float dropoutRate = 0.1f) : base(nameof(JokerTransformer)) {
@@ -23,9 +23,17 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
 
         this.posEncoding = new();
 
-        this.transformerBlocks = new();
-        for (var i = 0; i < numLayers; i++)
-            this.transformerBlocks.Add(new(embedDim, numHeads, dropoutRate));
+        var encoderLayer = TransformerEncoderLayer(
+            embedDim,
+            numHeads,
+            embedDim * 4,
+            dropoutRate
+        );
+
+        this.transformer = TransformerEncoder(
+            encoderLayer,
+            numLayers
+        );
 
         this.outputHead = Sequential(
             Linear(embedDim * 2, embedDim),
@@ -40,11 +48,10 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
     public override Tensor forward(Tensor input) {
         using var _ = NewDisposeScope();
 
-        input = this.inputProjection.forward(input);
         input = this.posEncoding.forward(input);
+        input = this.inputProjection.forward(input);
 
-        input = this.transformerBlocks
-            .Aggregate(input, (current, block) => block.forward(current));
+        input = this.transformer.forward(input, null, null);
 
         var historyFeatures = input[.., ..^1, ..];
         var lastFeatures = input[.., -1, ..];
@@ -52,11 +59,10 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
         var attention = matmul(
             historyFeatures,
             lastFeatures.unsqueeze(-1)
-        );
+        ).squeeze(-1);
 
-        var attentionWeights = softmax(attention, 1);
-
-        var globalFeatures = (attentionWeights * historyFeatures).sum(1);
+        var attentionWeights = softmax(attention, 1).unsqueeze(-1);
+        var globalFeatures = (historyFeatures * attentionWeights).sum(1);
 
         input = cat([globalFeatures, lastFeatures], -1);
 
