@@ -7,7 +7,7 @@ using static TorchSharp.torch.nn;
 internal class JokerTransformer : Module<Tensor, Tensor> {
     private readonly Sequential inputProjection;
 
-    private readonly Sequential outputHead;
+    private readonly Linear outputHead;
 
     private readonly PositionalEncoding posEncoding;
 
@@ -35,12 +35,7 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
             numLayers
         );
 
-        this.outputHead = Sequential(
-            Linear(embedDim, embedDim / 2),
-            ReLU(),
-            Dropout(dropoutRate),
-            Linear(embedDim / 2, 2)
-        );
+        this.outputHead = Linear(embedDim, 2);
 
         this.RegisterComponents();
     }
@@ -53,9 +48,11 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
 
         input = this.transformer.forward(input, null, null);
 
-        var attentionWeights = softmax(matmul(input, input.transpose(-2, -1)), -1);
+        var seqLen = input.shape[1];
+        var weights = linspace(1.0, 0.1, seqLen, device: input.device).unsqueeze(0).unsqueeze(-1);
 
-        var globalFeatures = matmul(attentionWeights, input).mean([1]);
+        input *= weights;
+        var globalFeatures = input.sum(dim: 1);
 
         return this.outputHead.forward(globalFeatures).MoveToOuterDisposeScope();
     }

@@ -7,6 +7,19 @@ using TorchSharp.Modules;
 using static TorchSharp.torch;
 
 internal class TrainService : BackgroundService {
+    public TrainService(JokerDataLoader loader, IOptions<JokerOption> options, ILogger<TrainService> logger) {
+        this.loader = loader;
+        this.option = options.Value;
+        this.logger = logger;
+
+        var featureDim = new SeriesFeatures().ToArray().Length;
+        this.model = new(featureDim, this.option.EmbedDim, this.option.NumHeads, this.option.NumLayers);
+        this.model.to(this.option.Device);
+
+        this.optimizer = optim.AdamW(this.model.parameters(), weight_decay: 1e-2);
+        this.scheduler = optim.lr_scheduler.ReduceLROnPlateau(this.optimizer, patience: 5);
+    }
+
     private JokerDataLoader loader { get; }
 
     private JokerOption option { get; }
@@ -29,22 +42,12 @@ internal class TrainService : BackgroundService {
 
     private double bestValidationLoss { get; set; } = double.MaxValue;
 
-    public TrainService(JokerDataLoader loader, IOptions<JokerOption> options, ILogger<TrainService> logger) {
-        this.loader = loader;
-        this.option = options.Value;
-        this.logger = logger;
+    private int trainGlobalStep { get; set; }
 
-        var featureDim = new SeriesFeatures().ToArray().Length;
-        this.model = new(featureDim, this.option.EmbedDim, this.option.NumHeads, this.option.NumLayers);
-        this.model.to(this.option.Device);
-
-        this.optimizer = optim.AdamW(this.model.parameters(), lr: 1e-2, weight_decay: 1e-2);
-        this.scheduler = optim.lr_scheduler.ReduceLROnPlateau(this.optimizer, patience: 5);
-    }
+    private int valGlobalStep { get; set; }
 
     public async Task TrainOneEpoch(int epoch, CancellationToken stoppingToken) {
         this.model.train();
-        var step = 0;
 
         await foreach (var (input, target) in this.loader.WithCancellation(stoppingToken)) {
             this.optimizer.zero_grad();
@@ -54,20 +57,20 @@ internal class TrainService : BackgroundService {
             var classificationLoss = this.bce.forward(output[.., 0], target[.., 0]);
             var regressionLoss = this.huber.forward(output[.., 1], target[.., 1]);
 
-            var loss = (this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss) * 10;
+            var loss = this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss;
             loss.backward();
             this.optimizer.step();
 
-            if (step % 10 == 0) {
+            if (this.trainGlobalStep % 10 == 0) {
                 this.logger.LogInformation(
-                    $"Train Epoch {epoch}, Step {step}, Total Loss: {loss.item<float>():F4}");
-                this.writer.add_scalar("Train/TotalLoss", loss.item<float>(), epoch * 100 + step);
-                this.writer.add_scalar("Train/ClassificationLoss", classificationLoss.item<float>(),
-                    epoch * 100 + step);
-                this.writer.add_scalar("Train/RegressionLoss", regressionLoss.item<float>(), epoch * 100 + step);
+                    $"Train Epoch {epoch}, Global Step {this.trainGlobalStep}, Total Loss: {loss.item<float>():F4}");
+                this.writer.add_scalar("Train/TotalLoss", loss.item<float>(), this.trainGlobalStep);
+                this.writer.add_scalar("Train/ClassificationLoss",
+                    classificationLoss.item<float>(), this.trainGlobalStep);
+                this.writer.add_scalar("Train/RegressionLoss", regressionLoss.item<float>(), this.trainGlobalStep);
             }
 
-            step++;
+            this.trainGlobalStep++;
             input.Dispose();
             target.Dispose();
         }
@@ -84,21 +87,24 @@ internal class TrainService : BackgroundService {
 
             var classificationLoss = this.bce.forward(output[.., 0], target[.., 0]);
             var regressionLoss = this.huber.forward(output[.., 1], target[.., 1]);
-            var loss = (this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss) * 10;
+            var loss = this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss;
 
             totalLoss += loss.item<float>();
 
-            if (step % 10 == 0) {
+            if (this.valGlobalStep % 10 == 0) {
                 this.logger.LogInformation(
-                    $"Val Epoch {epoch}, Step {step}, Total Loss: {loss.item<float>():F4}");
-                this.writer.add_scalar("Validation/TotalLoss", loss.item<float>(), epoch * 100 + step);
-                this.writer.add_scalar("Validation/ClassificationLoss", classificationLoss.item<float>(),
-                    epoch * 100 + step);
-                this.writer.add_scalar("Validation/RegressionLoss", regressionLoss.item<float>(),
-                    epoch * 100 + step);
+                    $"Val Epoch {epoch}, Global Step {this.valGlobalStep}, Total Loss: {loss.item<float>():F4}");
+                this.writer.add_scalar("Validation/TotalLoss", loss.item<float>(), this.valGlobalStep);
+                this.writer.add_scalar("Validation/ClassificationLoss", 
+                    classificationLoss.item<float>(), this.valGlobalStep);
+                this.writer.add_scalar("Validation/RegressionLoss", regressionLoss.item<float>(), this.valGlobalStep);
+
+                this.writer.add_histogram("Validation/Predictions", output[.., 0].cpu(), this.valGlobalStep);
+                this.writer.add_histogram("Validation/Targets", target[.., 0].cpu(), this.valGlobalStep);
             }
 
             step++;
+            this.valGlobalStep++;
             break;
         }
 
@@ -113,7 +119,8 @@ internal class TrainService : BackgroundService {
             this.patienceCounter = 0;
         } else {
             this.patienceCounter++;
-            this.logger.LogInformation($"Validation loss did not improve. Patience counter: {this.patienceCounter}/{this.option.Patience}");
+            this.logger.LogInformation(
+                $"Validation loss did not improve. Patience counter: {this.patienceCounter}/{this.option.Patience}");
 
             if (this.patienceCounter < this.option.Patience)
                 return true;
