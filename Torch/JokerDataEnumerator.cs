@@ -62,7 +62,7 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
 
             var target = torch.zeros([
                 availableBatch,
-                2
+                1
             ], torch.ScalarType.Float32);
 
             for (var batch = 0; batch < availableBatch; batch++) {
@@ -79,8 +79,7 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 var nextPrice = this.currentBatchData[lastIndex + 1].OpenPrice;
 
                 var priceChange = (nextPrice - lastPrice) / lastPrice;
-                target[batch, 0] = priceChange > 0 ? 1 : 0;
-                target[batch, 1] = Math.Abs(priceChange);
+                target[batch, 0] = priceChange;
             }
 
             return (input.to(this.option.Device), target.to(this.option.Device));

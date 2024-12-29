@@ -7,9 +7,7 @@ using static TorchSharp.torch.nn;
 internal class JokerTransformer : Module<Tensor, Tensor> {
     private readonly Sequential inputProjection;
 
-    private readonly Sequential direction;
-
-    private readonly Sequential magnitude;
+    private readonly Linear output;
 
     private readonly PositionalEncoding posEncoding;
 
@@ -37,9 +35,7 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
             numLayers
         );
 
-        this.direction = Sequential(Linear(embedDim, 1), Sigmoid());
-
-        this.magnitude = Sequential(Linear(embedDim, 1), ReLU());
+        this.output = Linear(embedDim, 1);
 
         this.RegisterComponents();
     }
@@ -58,9 +54,7 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
         input *= weights;
         var globalFeatures = input.sum(dim: 1);
 
-        var dir = this.direction.forward(globalFeatures);
-        var mag = this.magnitude.forward(globalFeatures);
-
-        return cat([dir, mag], dim: 1).MoveToOuterDisposeScope();
+        input = this.output.forward(globalFeatures);
+        return input.MoveToOuterDisposeScope();
     }
 }

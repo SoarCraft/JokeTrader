@@ -30,8 +30,6 @@ internal class TrainService : BackgroundService {
 
     private AdamW optimizer { get; }
 
-    private BCELoss bce { get; } = nn.BCELoss();
-
     private HuberLoss huber { get; } = nn.HuberLoss();
 
     private optim.lr_scheduler.LRScheduler scheduler { get; }
@@ -54,20 +52,14 @@ internal class TrainService : BackgroundService {
 
             var output = this.model.forward(input);
 
-            var classificationLoss = this.bce.forward(output[.., 0], target[.., 0]);
-            var regressionLoss = this.huber.forward(output[.., 1], target[.., 1]);
-
-            var loss = this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss;
+            var loss = this.huber.forward(output, target);
             loss.backward();
             this.optimizer.step();
 
             if (this.trainGlobalStep % 10 == 0) {
                 this.logger.LogInformation(
                     $"Train Epoch {epoch}, Global Step {this.trainGlobalStep}, Total Loss: {loss.item<float>():F4}");
-                this.writer.add_scalar("Train/TotalLoss", loss.item<float>(), this.trainGlobalStep);
-                this.writer.add_scalar("Train/ClassificationLoss",
-                    classificationLoss.item<float>(), this.trainGlobalStep);
-                this.writer.add_scalar("Train/RegressionLoss", regressionLoss.item<float>(), this.trainGlobalStep);
+                this.writer.add_scalar("Train/Loss", loss.item<float>(), this.trainGlobalStep);
             }
 
             this.trainGlobalStep++;
@@ -90,32 +82,20 @@ internal class TrainService : BackgroundService {
             using var _ = no_grad();
             var output = this.model.forward(input);
 
-            var classificationLoss = this.bce.forward(output[.., 0], target[.., 0]);
-            var regressionLoss = this.huber.forward(output[.., 1], target[.., 1]);
-            var loss = this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss;
+            var loss =  this.huber.forward(output, target);
 
             totalLoss += loss.item<float>();
 
             if (step % 5 == 0) {
                 this.logger.LogInformation(
                     $"Val Epoch {epoch}, Global Step {this.valGlobalStep}, Total Loss: {loss.item<float>():F4}");
-                this.writer.add_scalar("Validation/TotalLoss", loss.item<float>(), this.valGlobalStep);
-                this.writer.add_scalar("Validation/ClassificationLoss", 
-                    classificationLoss.item<float>(), this.valGlobalStep);
-                this.writer.add_scalar("Validation/RegressionLoss", regressionLoss.item<float>(), this.valGlobalStep);
+                this.writer.add_scalar("Validation/Loss", loss.item<float>(), this.valGlobalStep);
 
                 var outputCpu = output.cpu().detach();
                 var targetCpu = target.cpu().detach();
 
-                var classificationPrediction = outputCpu[0, 0].item<float>();
-                var classificationTarget = targetCpu[0, 0].item<float>();
-
-                var regressionPrediction = outputCpu[0, 1].item<float>();
-                var regressionTarget = targetCpu[0, 1].item<float>();
-
-                this.writer.add_scalar("Compare/ClassificationPrediction", classificationPrediction, this.valGlobalStep);
-                this.writer.add_scalar("Compare/ClassificationTarget", classificationTarget, this.valGlobalStep);
-                this.writer.add_scalar("Compare/ClassificationDiff", classificationPrediction - classificationTarget, this.valGlobalStep);
+                var regressionPrediction = outputCpu[0].item<float>();
+                var regressionTarget = targetCpu[0].item<float>();
 
                 this.writer.add_scalar("Compare/RegressionPrediction", regressionPrediction, this.valGlobalStep);
                 this.writer.add_scalar("Compare/RegressionTarget", regressionTarget, this.valGlobalStep);
