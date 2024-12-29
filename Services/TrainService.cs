@@ -30,6 +30,8 @@ internal class TrainService : BackgroundService {
 
     private AdamW optimizer { get; }
 
+    private BCELoss bce { get; } = nn.BCELoss();
+
     private HuberLoss huber { get; } = nn.HuberLoss();
 
     private optim.lr_scheduler.LRScheduler scheduler { get; }
@@ -52,14 +54,23 @@ internal class TrainService : BackgroundService {
 
             var output = this.model.forward(input);
 
-            var loss = this.huber.forward(output, target);
+            var classification = output.greater(zeros_like(output)).to_type(ScalarType.Float32);
+            var classificationTarget = target.greater(zeros_like(target)).to_type(ScalarType.Float32);
+
+            var classificationLoss = this.bce.forward(classification, classificationTarget);
+            var regressionLoss = this.huber.forward(output, target);
+
+            var loss = this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss;
             loss.backward();
             this.optimizer.step();
 
             if (this.trainGlobalStep % 10 == 0) {
                 this.logger.LogInformation(
                     $"Train Epoch {epoch}, Global Step {this.trainGlobalStep}, Total Loss: {loss.item<float>():F4}");
-                this.writer.add_scalar("Train/Loss", loss.item<float>(), this.trainGlobalStep);
+                this.writer.add_scalar("Train/TotalLoss", loss.item<float>(), this.trainGlobalStep);
+                this.writer.add_scalar("Train/ClassificationLoss",
+                    classificationLoss.item<float>(), this.trainGlobalStep);
+                this.writer.add_scalar("Train/RegressionLoss", regressionLoss.item<float>(), this.trainGlobalStep);
             }
 
             this.trainGlobalStep++;
@@ -82,14 +93,22 @@ internal class TrainService : BackgroundService {
             using var _ = no_grad();
             var output = this.model.forward(input);
 
-            var loss =  this.huber.forward(output, target);
+            var classification = output.greater(zeros_like(output)).to_type(ScalarType.Float32);
+            var classificationTarget = target.greater(zeros_like(target)).to_type(ScalarType.Float32);
 
+            var classificationLoss = this.bce.forward(classification, classificationTarget);
+            var regressionLoss = this.huber.forward(output, target);
+
+            var loss = this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss;
             totalLoss += loss.item<float>();
 
             if (step % 5 == 0) {
                 this.logger.LogInformation(
                     $"Val Epoch {epoch}, Global Step {this.valGlobalStep}, Total Loss: {loss.item<float>():F4}");
-                this.writer.add_scalar("Validation/Loss", loss.item<float>(), this.valGlobalStep);
+                this.writer.add_scalar("Validation/TotalLoss", loss.item<float>(), this.valGlobalStep);
+                this.writer.add_scalar("Validation/ClassificationLoss", 
+                    classificationLoss.item<float>(), this.valGlobalStep);
+                this.writer.add_scalar("Validation/RegressionLoss", regressionLoss.item<float>(), this.valGlobalStep);
 
                 var outputCpu = output.cpu().detach();
                 var targetCpu = target.cpu().detach();

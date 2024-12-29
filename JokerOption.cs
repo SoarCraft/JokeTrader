@@ -34,5 +34,7 @@ internal class JokerOption {
 
     public int Patience => 10;
 
+    public float Alpha => 0.7f;
+
     public torch.Device Device { get; } = torch.cuda_is_available() ? torch.CUDA : torch.CPU;
 }

@@ -18,10 +18,10 @@ internal class JokerDataLoader(JokerContext context, IOptions<JokerOption> optio
     }.Cast<int>().Select(x => x / 60).ToArray();
 
     public IAsyncEnumerator<(torch.Tensor, torch.Tensor)> GetAsyncEnumerator(CancellationToken cancellationToken = new()) {
-        // var randomViewSize = ViewSizes[Random.Shared.Next(ViewSizes.Length)];
-        // var randomWindowSize = Random.Shared.Next(this.Opt.MinWindow, this.Opt.MaxWindow + 1);
-        //
-        // logger.LogInformation($"Random View size: {randomViewSize}, Window size: {randomWindowSize}");
-        return new JokerDataEnumerator(context, this.Opt, ViewSizes[2], 40, enumLogger);
+        var randomViewSize = ViewSizes[Random.Shared.Next(ViewSizes.Length)];
+        var randomWindowSize = Random.Shared.Next(this.Opt.MinWindow, this.Opt.MaxWindow + 1);
+        
+        logger.LogInformation($"Random View size: {randomViewSize}, Window size: {randomWindowSize}");
+        return new JokerDataEnumerator(context, this.Opt, randomViewSize, randomWindowSize, enumLogger);
     }
 }
