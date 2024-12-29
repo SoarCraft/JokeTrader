@@ -16,10 +16,10 @@ internal class TrainService : BackgroundService {
         this.model = new(featureDim, this.option.EmbedDim, this.option.NumHeads, this.option.NumLayers);
         this.model.to(this.option.Device);
 
+        this.loadLastCheckpoint();
+
         this.optimizer = optim.AdamW(this.model.parameters(), weight_decay: 1e-2);
         this.scheduler = optim.lr_scheduler.ReduceLROnPlateau(this.optimizer, patience: 5);
-
-        this.loadLastCheckpoint();
     }
 
     private JokerDataLoader loader { get; }
@@ -53,7 +53,7 @@ internal class TrainService : BackgroundService {
         if (!Directory.Exists(checkpointDir))
             return;
 
-        var checkpointFiles = Directory.GetFiles(checkpointDir, "best_*.pt");
+        var checkpointFiles = Directory.GetFiles(checkpointDir, "best_*.bin");
         if (checkpointFiles.Length == 0) return;
 
         var lastCheckpoint = checkpointFiles
@@ -185,7 +185,7 @@ internal class TrainService : BackgroundService {
         if (!Directory.Exists(checkpointDir))
             Directory.CreateDirectory(checkpointDir);
 
-        var checkpointPath = Path.Combine(checkpointDir, $"best_{epoch}.pt");
+        var checkpointPath = Path.Combine(checkpointDir, $"best_{epoch}.bin");
         this.model.save(checkpointPath);
         this.logger.LogInformation($"Checkpoint saved at {checkpointPath}");
     }
