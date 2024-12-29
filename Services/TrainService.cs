@@ -18,6 +18,8 @@ internal class TrainService : BackgroundService {
 
         this.optimizer = optim.AdamW(this.model.parameters(), weight_decay: 1e-2);
         this.scheduler = optim.lr_scheduler.ReduceLROnPlateau(this.optimizer, patience: 5);
+
+        this.loadLastCheckpoint();
     }
 
     private JokerDataLoader loader { get; }
@@ -30,7 +32,7 @@ internal class TrainService : BackgroundService {
 
     private AdamW optimizer { get; }
 
-    private BCELoss bce { get; } = nn.BCELoss();
+    private BCEWithLogitsLoss bce { get; } = nn.BCEWithLogitsLoss();
 
     private HuberLoss huber { get; } = nn.HuberLoss();
 
@@ -46,6 +48,29 @@ internal class TrainService : BackgroundService {
 
     private int valGlobalStep { get; set; }
 
+    private void loadLastCheckpoint() {
+        const string checkpointDir = "checkpoints";
+        if (!Directory.Exists(checkpointDir))
+            return;
+
+        var checkpointFiles = Directory.GetFiles(checkpointDir, "best_*.pt");
+        if (checkpointFiles.Length == 0) return;
+
+        var lastCheckpoint = checkpointFiles
+            .Select(file => new
+            {
+                File = file,
+                Epoch = int.Parse(Path.GetFileNameWithoutExtension(file).Split('_')[1])
+            })
+            .MaxBy(x => x.Epoch);
+
+        if (lastCheckpoint == null)
+            return;
+
+        this.model.load(lastCheckpoint.File);
+        this.logger.LogInformation($"Loaded checkpoint from {lastCheckpoint.File}");
+    }
+
     public async Task TrainOneEpoch(int epoch, CancellationToken stoppingToken) {
         this.model.train();
 
@@ -54,11 +79,8 @@ internal class TrainService : BackgroundService {
 
             var output = this.model.forward(input);
 
-            var classification = output.greater(zeros_like(output)).to_type(ScalarType.Float32);
-            var classificationTarget = target.greater(zeros_like(target)).to_type(ScalarType.Float32);
-
-            var classificationLoss = this.bce.forward(classification, classificationTarget);
-            var regressionLoss = this.huber.forward(output, target);
+            var classificationLoss = this.bce.forward(output[.., 0], target[.., 0]);
+            var regressionLoss = this.huber.forward(output[.., 1], target[.., 1]);
 
             var loss = this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss;
             loss.backward();
@@ -93,11 +115,8 @@ internal class TrainService : BackgroundService {
             using var _ = no_grad();
             var output = this.model.forward(input);
 
-            var classification = output.greater(zeros_like(output)).to_type(ScalarType.Float32);
-            var classificationTarget = target.greater(zeros_like(target)).to_type(ScalarType.Float32);
-
-            var classificationLoss = this.bce.forward(classification, classificationTarget);
-            var regressionLoss = this.huber.forward(output, target);
+            var classificationLoss = this.bce.forward(output[.., 0], target[.., 0]);
+            var regressionLoss = this.huber.forward(output[.., 1], target[.., 1]);
 
             var loss = this.option.Alpha * classificationLoss + (1 - this.option.Alpha) * regressionLoss;
             totalLoss += loss.item<float>();
@@ -106,19 +125,29 @@ internal class TrainService : BackgroundService {
                 this.logger.LogInformation(
                     $"Val Epoch {epoch}, Global Step {this.valGlobalStep}, Total Loss: {loss.item<float>():F4}");
                 this.writer.add_scalar("Validation/TotalLoss", loss.item<float>(), this.valGlobalStep);
-                this.writer.add_scalar("Validation/ClassificationLoss", 
+                this.writer.add_scalar("Validation/ClassificationLoss",
                     classificationLoss.item<float>(), this.valGlobalStep);
                 this.writer.add_scalar("Validation/RegressionLoss", regressionLoss.item<float>(), this.valGlobalStep);
 
                 var outputCpu = output.cpu().detach();
                 var targetCpu = target.cpu().detach();
 
-                var regressionPrediction = outputCpu[0].item<float>();
-                var regressionTarget = targetCpu[0].item<float>();
+                var classificationPrediction = outputCpu[0, 0].item<float>();
+                var classificationTarget = targetCpu[0, 0].item<float>();
+
+                var regressionPrediction = outputCpu[0, 1].item<float>();
+                var regressionTarget = targetCpu[0, 1].item<float>();
+
+                this.writer.add_scalar("Compare/ClassificationPrediction", classificationPrediction,
+                    this.valGlobalStep);
+                this.writer.add_scalar("Compare/ClassificationTarget", classificationTarget, this.valGlobalStep);
+                this.writer.add_scalar("Compare/ClassificationDiff", classificationPrediction - classificationTarget,
+                    this.valGlobalStep);
 
                 this.writer.add_scalar("Compare/RegressionPrediction", regressionPrediction, this.valGlobalStep);
                 this.writer.add_scalar("Compare/RegressionTarget", regressionTarget, this.valGlobalStep);
-                this.writer.add_scalar("Compare/RegressionDiff", regressionPrediction - regressionTarget, this.valGlobalStep);
+                this.writer.add_scalar("Compare/RegressionDiff", regressionPrediction - regressionTarget,
+                    this.valGlobalStep);
             }
 
             step++;

@@ -27,7 +27,8 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
             embedDim,
             numHeads,
             embedDim * 4,
-            dropoutRate
+            dropoutRate,
+            Activations.GELU
         );
 
         this.transformer = TransformerEncoder(
@@ -35,7 +36,7 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
             numLayers
         );
 
-        this.output = Linear(embedDim, 1);
+        this.output = Linear(embedDim, 2);
 
         this.RegisterComponents();
     }
