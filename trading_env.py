@@ -317,4 +317,4 @@ class BybitTradingEnv(gym.Env):
         
         # 组装新的状态观测
         obs = self._get_observation()
-        return obs, reward, done, info
+        return obs, reward, done, info, daily_return
