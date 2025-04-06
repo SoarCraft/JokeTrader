@@ -96,19 +96,19 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
         var interval = (int)this.option.KlineInterval / 60;
         var requiredDataNum = requiredTimeSteps * this.viewSize / interval;
 
-        var rawData = await this.context.BTCKLines
+        var rawData = await this.context.KLines
             .Where(k => k.StartTime >= this.currentStartTime && k.StartTime < queryEndTime)
             .Select(k => new {
                 KLine = k,
-                Ratio = this.context.BTCRatios
+                Ratio = this.context.Ratios
                     .Where(r => r.Timestamp == k.StartTime)
                     .Select(r => new { r.BuyRatio, r.SellRatio })
                     .First(),
-                Interest = this.context.BTCInterests
+                Interest = this.context.Interests
                     .Where(i => i.Timestamp == k.StartTime)
                     .Select(i => i.OpenInterest)
                     .First(),
-                Fund = this.context.BTCFundRates
+                Fund = this.context.FundRates
                     .OrderByDescending(f => f.Timestamp)
                     .Where(f => f.Timestamp <= k.StartTime)
                     .Select(f => f.FundingRate)
@@ -117,6 +117,9 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
             .Select(x => new SeriesDataRow {
                 Timestamp = x.KLine.StartTime,
                 OpenPrice = x.KLine.OpenPrice,
+                HighPrice = x.KLine.HighPrice,
+                LowPrice = x.KLine.LowPrice,
+                ClosePrice = x.KLine.ClosePrice,
                 Volume = x.KLine.Volume,
                 BuyRatio = x.Ratio.BuyRatio,
                 SellRatio = x.Ratio.SellRatio,
@@ -125,8 +128,7 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
                 Interval = interval
             }).ToListAsync();
 
-        var aggregate = this.aggregateData(rawData);
-        this.currentBatchData = await this.normalizeData(aggregate);
+        this.currentBatchData = this.aggregateData(rawData);
 
         this.logger.LogDebug(
             $"Load {rawData.Count} rows required {requiredDataNum} to {this.currentBatchData.Count} " +
@@ -137,35 +139,6 @@ internal class JokerDataEnumerator : IAsyncEnumerator<(torch.Tensor, torch.Tenso
 
         this.logger.LogInformation("Not enough data for next one batch");
         return false;
-    }
-
-    private async Task<List<SeriesDataRow>> normalizeData(List<SeriesDataRow> rawData) {
-        var normalization = await this.context.Normalizations
-            .Where(n => n.SymbolId == this.option.Symbol)
-            .Select(x => new { x.Feature, x.Mean, x.Std })
-            .ToDictionaryAsync(k => k.Feature, v => (v.Mean, v.Std));
-
-        var volumeMean = rawData.CalculateMean(data => data.Volume);
-        var volumeStd = rawData.CalculateStd(data => data.Volume, volumeMean);
-
-        var priceNorm = normalization[nameof(SeriesFeatures.OpenPrice)];
-        var interestNorm = normalization[nameof(SeriesFeatures.OpenInterest)];
-
-        foreach (var data in rawData) {
-            data.OpenPrice = priceNorm.Std == 0
-                ? 0
-                : (data.OpenPrice - priceNorm.Mean) / priceNorm.Std;
-
-            data.OpenInterest = interestNorm.Std == 0
-                ? 0
-                : (data.OpenInterest - interestNorm.Mean) / interestNorm.Std;
-
-            data.Volume = volumeStd == 0
-                ? 0
-                : (data.Volume - volumeMean) / volumeStd;
-        }
-
-        return rawData;
     }
 
     private List<SeriesDataRow> aggregateData(List<SeriesDataRow> rawData) {

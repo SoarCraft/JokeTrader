@@ -12,11 +12,11 @@ internal class InterestService(IBybitRestClient restClient, IDbContextFactory<Jo
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         await using var context = await db.CreateDbContextAsync(stoppingToken);
-        await this.Prepare(context, context.BTCInterests, this.Opt.Symbol, this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
+        await this.Prepare(context, context.Interests, this.Opt.Symbol, this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
     }
 
     public async Task Prepare<T>(JokerContext context, DbSet<T> targetDb, string symbolName, DateTime startTime,
-        DateTime endTime, CancellationToken stoppingToken) where T : BasicInterest, new() {
+        DateTime endTime, CancellationToken stoppingToken) where T : Interest, new() {
 
         var symbol = await context.Symbols.FirstAsync(s => s.Name == symbolName, stoppingToken);
 
@@ -39,7 +39,7 @@ internal class InterestService(IBybitRestClient restClient, IDbContextFactory<Jo
     }
 
     public async Task<T[]> FetchInterests<T>(Symbol symbol, DateTime startTime, DateTime? endTime,
-        CancellationToken stoppingToken) where T : BasicInterest, new() {
+        CancellationToken stoppingToken) where T : Interest, new() {
 
         var interestResult = await restClient.V5Api.ExchangeData.GetOpenInterestAsync(
             this.Opt.Category, symbol.Name, this.Opt.InterestInterval, startTime, endTime, 200, ct: stoppingToken);

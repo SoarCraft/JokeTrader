@@ -12,11 +12,11 @@ internal class RatioService(IBybitRestClient restClient, IDbContextFactory<Joker
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         await using var context = await db.CreateDbContextAsync(stoppingToken);
-        await this.Prepare(context, context.BTCRatios, this.Opt.Symbol, this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
+        await this.Prepare(context, context.Ratios, this.Opt.Symbol, this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
     }
 
     public async Task Prepare<T>(JokerContext context, DbSet<T> targetDb, string symbolName, DateTime startTime,
-        DateTime endTime, CancellationToken stoppingToken) where T : BasicRatio, new() {
+        DateTime endTime, CancellationToken stoppingToken) where T : Ratio, new() {
 
         var symbol = await context.Symbols.FirstAsync(s => s.Name == symbolName, stoppingToken);
 
@@ -39,7 +39,7 @@ internal class RatioService(IBybitRestClient restClient, IDbContextFactory<Joker
     }
 
     public async Task<T[]> FetchRatios<T>(Symbol symbol, DateTime startTime, DateTime? endTime,
-        CancellationToken stoppingToken) where T : BasicRatio, new() {
+        CancellationToken stoppingToken) where T : Ratio, new() {
 
         var ratioResult = await restClient.V5Api.ExchangeData.GetLongShortRatioAsync(
             this.Opt.Category, symbol.Name, this.Opt.Period, startTime, endTime, 500, stoppingToken);

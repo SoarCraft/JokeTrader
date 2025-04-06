@@ -3,8 +3,7 @@
 using System.Threading.Tasks;
 
 internal class Orchestration(FundRateService fundRate, InterestService interest, 
-    KLineService kLine, RatioService ratio, SymbolService symbol,
-    ZScoreService zScore, TrainService train) : BackgroundService {
+    KLineService kLine, RatioService ratio, SymbolService symbol, TrainService train) : BackgroundService {
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         await symbol.StartAsync(stoppingToken);
@@ -21,9 +20,6 @@ internal class Orchestration(FundRateService fundRate, InterestService interest,
             kLine.ExecuteTask!,
             ratio.ExecuteTask!
         ]);
-
-        await zScore.StartAsync(stoppingToken);
-        await zScore.ExecuteTask!;
 
         await train.StartAsync(stoppingToken);
         await train.ExecuteTask!;

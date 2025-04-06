@@ -20,7 +20,6 @@ builder.Services.AddTransient<KLineService>();
 builder.Services.AddTransient<RatioService>();
 builder.Services.AddTransient<FundRateService>();
 builder.Services.AddTransient<InterestService>();
-builder.Services.AddTransient<ZScoreService>();
 
 builder.Services.AddSingleton<JokerDataLoader>();
 builder.Services.AddSingleton<TrainService>();

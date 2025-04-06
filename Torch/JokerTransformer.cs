@@ -49,10 +49,6 @@ internal class JokerTransformer : Module<Tensor, Tensor> {
 
         input = this.transformer.forward(input, null, null);
 
-        var seqLen = input.shape[1];
-        var weights = linspace(1.0, 0.1, seqLen, device: input.device).unsqueeze(0).unsqueeze(-1);
-
-        input *= weights;
         var globalFeatures = input.sum(dim: 1);
 
         input = this.output.forward(globalFeatures);

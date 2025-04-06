@@ -12,11 +12,11 @@ internal class KLineService(IBybitRestClient restClient, IDbContextFactory<Joker
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         await using var context = await db.CreateDbContextAsync(stoppingToken);
-        await this.Prepare(context, context.BTCKLines, this.Opt.Symbol, this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
+        await this.Prepare(context, context.KLines, this.Opt.Symbol, this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
     }
 
     public async Task Prepare<T>(JokerContext context, DbSet<T> targetDb, string symbolName, DateTime startTime,
-        DateTime endTime, CancellationToken stoppingToken) where T : BasicKLine, new() {
+        DateTime endTime, CancellationToken stoppingToken) where T : KLine, new() {
 
         var symbol = await context.Symbols.FirstAsync(s => s.Name == symbolName, stoppingToken);
 
@@ -39,7 +39,7 @@ internal class KLineService(IBybitRestClient restClient, IDbContextFactory<Joker
     }
 
     public async Task<T[]> FetchKLines<T>(Symbol symbol, DateTime startTime, DateTime? endTime,
-        CancellationToken stoppingToken) where T : BasicKLine, new() {
+        CancellationToken stoppingToken) where T : KLine, new() {
 
         var klineResult = await restClient.V5Api.ExchangeData.GetKlinesAsync(
             this.Opt.Category, symbol.Name, this.Opt.KlineInterval, startTime, endTime, 1000, stoppingToken);
@@ -50,6 +50,9 @@ internal class KLineService(IBybitRestClient restClient, IDbContextFactory<Joker
         var symbolLines = klineResult.Data.List.Select(k => new T {
             StartTime = k.StartTime,
             OpenPrice = (double)k.OpenPrice,
+            HighPrice = (double)k.HighPrice,
+            LowPrice = (double)k.LowPrice,
+            ClosePrice = (double)k.ClosePrice,
             Volume = (double)k.Volume,
             Symbol = symbol
         }).ToArray();

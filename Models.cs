@@ -7,20 +7,24 @@ public abstract class Concurrency {
     public byte[] Version { get; set; }
 }
 
-public abstract class BasicKLine : Concurrency {
+public class KLine : Concurrency {
     [Key]
     public DateTime StartTime { get; set; }
 
     public double OpenPrice { get; set; }
+
+    public double HighPrice { get; set; }
+
+    public double LowPrice { get; set; }
+
+    public double ClosePrice { get; set; }
 
     public double Volume { get; set; }
 
     public Symbol Symbol { get; set; }
 }
 
-public class BTCKLine : BasicKLine;
-
-public abstract class BasicRatio : Concurrency {
+public class Ratio : Concurrency {
     [Key]
     public DateTime Timestamp { get; set; }
 
@@ -31,9 +35,7 @@ public abstract class BasicRatio : Concurrency {
     public Symbol Symbol { get; set; }
 }
 
-public class BTCRatio : BasicRatio;
-
-public abstract class BasicFundRate : Concurrency {
+public class FundRate : Concurrency {
     [Key]
     public DateTime Timestamp { get; set; }
 
@@ -42,29 +44,13 @@ public abstract class BasicFundRate : Concurrency {
     public Symbol Symbol { get; set; }
 }
 
-public class BTCFundRate : BasicFundRate;
-
-public class BasicInterest : Concurrency {
+public class Interest : Concurrency {
     [Key]
     public DateTime Timestamp { get; set; }
 
     public double OpenInterest { get; set; }
 
     public Symbol Symbol { get; set; }
-}
-
-public class BTCInterest : BasicInterest;
-
-public class Normalization {
-    public string Feature { get; set; }
-
-    public string SymbolId { get; set; }
-
-    public Symbol Symbol { get; set; }
-
-    public double Mean { get; set; }
-
-    public double Std { get; set; }
 }
 
 public class Symbol : Concurrency {
@@ -81,13 +67,11 @@ public class Symbol : Concurrency {
 
     public DateTime LastUpdated { get; set; }
 
-    public List<BTCKLine> BTCKLines { get; set; } = [];
+    public List<KLine> KLines { get; set; } = [];
 
-    public List<BTCRatio> BTCRatios { get; set; } = [];
+    public List<Ratio> Ratios { get; set; } = [];
 
-    public List<BTCFundRate> BTCFundRates { get; set; } = [];
+    public List<FundRate> FundRates { get; set; } = [];
 
-    public List<BTCInterest> BTCInterests { get; set; } = [];
-
-    public List<Normalization> Normalizations { get; set; } = [];
+    public List<Interest> Interests { get; set; } = [];
 }

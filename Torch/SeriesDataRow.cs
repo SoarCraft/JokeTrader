@@ -3,6 +3,12 @@
 internal class SeriesFeatures {
     public double OpenPrice { get; set; }
 
+    public double HighPrice { get; set; }
+
+    public double LowPrice { get; set; }
+
+    public double ClosePrice { get; set; }
+
     public double Volume { get; set; }
 
     public double BuyRatio { get; set; }
@@ -17,6 +23,9 @@ internal class SeriesFeatures {
 
     public double[] ToArray() => [
         this.OpenPrice,
+        this.HighPrice,
+        this.LowPrice,
+        this.ClosePrice,
         this.Volume,
         this.BuyRatio,
         this.SellRatio,

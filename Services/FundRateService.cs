@@ -12,11 +12,11 @@ internal class FundRateService(IBybitRestClient restClient, IDbContextFactory<Jo
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         await using var context = await db.CreateDbContextAsync(stoppingToken);
-        await this.Prepare(context, context.BTCFundRates, this.Opt.Symbol, this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
+        await this.Prepare(context, context.FundRates, this.Opt.Symbol, this.Opt.HistoryStart, this.Opt.HistoryEnd, stoppingToken);
     }
 
     public async Task Prepare<T>(JokerContext context, DbSet<T> targetDb, string symbolName, DateTime startTime,
-        DateTime endTime, CancellationToken stoppingToken) where T : BasicFundRate, new() {
+        DateTime endTime, CancellationToken stoppingToken) where T : FundRate, new() {
 
         var symbol = await context.Symbols.FirstAsync(s => s.Name == symbolName, stoppingToken);
 
@@ -39,7 +39,7 @@ internal class FundRateService(IBybitRestClient restClient, IDbContextFactory<Jo
     }
 
     public async Task<T[]> FetchFundRates<T>(Symbol symbol, DateTime startTime, DateTime? endTime,
-        CancellationToken stoppingToken) where T : BasicFundRate, new() {
+        CancellationToken stoppingToken) where T : FundRate, new() {
 
         var rateResult = await restClient.V5Api.ExchangeData.GetFundingRateHistoryAsync(
             this.Opt.Category, symbol.Name, startTime, endTime, 200, ct: stoppingToken);
