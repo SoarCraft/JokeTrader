@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class ActorCritic(nn.Module):
-    def __init__(self, seq_feature_dim: int, account_dim: int, d_model: int = 128, nhead: int = 8, num_layers: int = 2):
+    def __init__(self, seq_feature_dim: int, account_dim: int, d_model: int = 128, nhead: int = 8, num_layers: int = 2, window_size: int = 50):
         super(ActorCritic, self).__init__()
         # Transformer编码器层
         encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead, dim_feedforward=4*d_model)
@@ -10,7 +10,7 @@ class ActorCritic(nn.Module):
         # 输入嵌入投影: 将每个时间步的特征映射到d_model维
         self.feature_proj = nn.Linear(seq_feature_dim, d_model)
         # 可学习的位置编码（也可使用固定正弦位置编码）
-        self.pos_embedding = nn.Parameter(torch.zeros(1, env.window_size+1, d_model))
+        self.pos_embedding = nn.Parameter(torch.zeros(1, window_size+1, d_model))
         # 账户状态嵌入
         self.account_proj = nn.Linear(account_dim, d_model)
         # 融合后的全连接层

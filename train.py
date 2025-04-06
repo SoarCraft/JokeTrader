@@ -1,4 +1,4 @@
-from matplotlib.patheffects import Normal
+from torch.distributions import Normal
 import numpy as np
 import torch
 import torch.optim as optim
@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from actor_critic import ActorCritic
 from trading_env import BybitTradingEnv
+from tqdm import tqdm
 
 # 加载预处理数据
 data = np.load("BTCUSDT_5m_features_2024-01-01_to_2025-04-01.npz")
@@ -16,9 +17,9 @@ prices = data["prices"]
 env = BybitTradingEnv(features, prices)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = ActorCritic(seq_feature_dim=features.shape[1], account_dim=10).to(device)
+model = ActorCritic(seq_feature_dim=features.shape[1], account_dim=10, window_size=env.window_size).to(device)
 optimizer = optim.Adam(model.parameters(), lr=3e-4)
-writer = SummaryWriter(log_dir="logs/trading_bot")
+writer = SummaryWriter(log_dir="logs")
 
 # PPO超参数
 gamma = 0.99
@@ -55,7 +56,7 @@ while global_step < max_train_steps:
     dones = []
     
     # 采样 rollouts
-    for t in range(batch_size):
+    for t in tqdm(range(batch_size), desc=f"Sampling Rollouts (Episode: {episode}, Step: {global_step})"):
         hist_tensor = torch.tensor(state["history"], dtype=torch.float32, device=device).unsqueeze(0)
         acc_tensor = torch.tensor(state["account"], dtype=torch.float32, device=device).unsqueeze(0)
         with torch.no_grad():
@@ -92,9 +93,11 @@ while global_step < max_train_steps:
             writer.add_scalar("Episode/TotalReward", episode_total_reward, episode)
             episode += 1
             state = env.reset()
+            
+        if daily_return is not None:
+            # 记录每日收益率
+            writer.add_scalar("Metrics/DailyReturn", daily_return, global_step)
 
-        writer.add_scalar("Metrics/DailyReturn", daily_return, global_step)
-    
     # 将最后状态的值计算用于优势估计（bootstrap）
     hist_tensor = torch.tensor(state["history"], dtype=torch.float32, device=device).unsqueeze(0)
     acc_tensor = torch.tensor(state["account"], dtype=torch.float32, device=device).unsqueeze(0)

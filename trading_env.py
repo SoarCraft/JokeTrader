@@ -303,6 +303,8 @@ class BybitTradingEnv(gym.Env):
             self.equity_start_of_day = self.equity
             self.day_step_count = 0
             self.max_daily_utilization = 0.0
+        else:
+            daily_return = None
         
         # 更新未实现盈亏（应用完动作后的新仓位基于当前价计算UPnL初始值）
         if self.position_size != 0:
