@@ -10,7 +10,7 @@ from trading_env import BybitTradingEnv
 from tqdm import tqdm
 
 # 加载预处理数据
-data = np.load("BTCUSDT_5m_features_2024-01-01_to_2025-04-01.npz")
+data = np.load("BTCUSDT_5m_features_2023-01-01_to_2025-04-01.npz")
 features = data["features"]
 prices = data["prices"]
 # 创建环境实例
@@ -30,7 +30,7 @@ entropy_coef = 0.01
 batch_size = 2048   # 每次收集2048个时间步数据
 mini_batch_size = 256
 ppo_epochs = 10
-max_train_steps = 500000
+max_train_steps = 50000000
 
 # 日志辅助
 episode_rewards = []  # 存储每回合总奖励（可选）
@@ -177,3 +177,5 @@ while global_step < max_train_steps:
     if episode_rewards:
         avg_reward = np.mean(episode_rewards[-10:])  # 平均最近10回合奖励
         writer.add_scalar("Episode/AvgReward", avg_reward, global_step)
+
+writer.close()

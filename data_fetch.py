@@ -51,11 +51,11 @@ def fetch_historical_klines(symbol: str, interval: int, start_time: str, end_tim
     df = pd.DataFrame(all_data, columns=["datetime", "open", "high", "low", "close", "volume"])
     return df
 
-# 使用上述函数获取2024-01-01至2025-04-01的BTCUSDT 5m数据
+# 使用上述函数获取2023-01-01至2025-04-01的BTCUSDT 5m数据
 if __name__ == "__main__":
     df = fetch_historical_klines("BTCUSDT", interval=5, 
-                                 start_time="2024-01-01 00:00:00", 
+                                 start_time="2023-01-01 00:00:00", 
                                  end_time="2025-04-01 00:00:00")
     # 将数据缓存保存为CSV
-    df.to_csv("BTCUSDT_5m_2024-01-01_to_2025-04-01.csv", index=False)
+    df.to_csv("BTCUSDT_5m_2023-01-01_to_2025-04-01.csv", index=False)
     print(f"Fetched {len(df)} rows of data")

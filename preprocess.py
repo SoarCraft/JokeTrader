@@ -23,6 +23,6 @@ def preprocess_data(df: pd.DataFrame, window_size: int = 50):
 
 # 使用数据文件进行预处理并保存缓存
 if __name__ == "__main__":
-    df = pd.read_csv("BTCUSDT_5m_2024-01-01_to_2025-04-01.csv")
+    df = pd.read_csv("BTCUSDT_5m_2023-01-01_to_2025-04-01.csv")
     features, prices = preprocess_data(df)
-    np.savez("BTCUSDT_5m_features_2024-01-01_to_2025-04-01.npz", features=features, prices=prices)
+    np.savez("BTCUSDT_5m_features_2023-01-01_to_2025-04-01.npz", features=features, prices=prices)
