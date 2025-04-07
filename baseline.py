@@ -326,14 +326,14 @@ min_equity = np.min(equity_curve)
 peak_values = np.maximum.accumulate(equity_curve)
 drawdowns = (peak_values - np.array(equity_curve)) / peak_values
 max_drawdown_pct = np.max(drawdowns)
-# 计算夏普比率（假设每步为1分钟，日交易1440步，年交易约365*1440步）
+# 计算夏普比率（假设每步为5分钟，日交易288步，年交易约365*288步）
 returns = np.diff(equity_curve) / equity_curve[:-1]  # 每步收益率
 if returns.size > 0 and returns.std() != 0:
     # 转化为年化夏普：均值*每年步数^(1/2) / 标准差
     mean_return = returns.mean()
     std_return = returns.std()
-    # 年化因子：假设1分钟步长，一年约525600分钟
-    annual_factor = np.sqrt(525600)
+    # 年化因子：假设5分钟步长，一年约105120步
+    annual_factor = np.sqrt(105120)
     sharpe_ratio = (mean_return * annual_factor) / (std_return + 1e-8)
 else:
     sharpe_ratio = 0.0
