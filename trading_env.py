@@ -158,7 +158,7 @@ class BybitTradingEnv(gym.Env):
                 info['event'] = 'liquidation'
                 return self._get_observation(), reward, done, info
         
-        # **应用智能体的动作调整仓位**
+        # 应用智能体的动作调整仓位
         realized_pnl = 0.0
         # 当前是否持仓
         if self.position_size != 0:
@@ -274,7 +274,7 @@ class BybitTradingEnv(gym.Env):
                     self.balance -= margin_to_use
                     self.unrealized_pnl = 0.0
         
-        # **行情推进到下一步**
+        # 行情推进到下一步
         self.current_step += 1
         self.day_step_count += 1
         done = False

@@ -165,7 +165,7 @@ class BTCTradingEnv(gym.Env):
             # 没有交易，fee_cost=0
             fee_cost = 0.0
         
-        # **资金费处理**: 检查该步是否有资金费结算
+        # 资金费处理: 检查该步是否有资金费结算
         if self.funding_rates is not None:
             # 判断当前步是否是资金费结算点。
             # 若提供funding_rate序列，则直接取当前步的费率（假设在结算步，该费率非零）。
@@ -216,7 +216,7 @@ class BTCTradingEnv(gym.Env):
         # 计算当前回撤比例
         drawdown = (self.peak_equity - self.total_equity) / self.peak_equity if self.peak_equity > 0 else 0
         
-        # **奖励计算**：
+        # 奖励计算：
         # 基础收益率（净值相对变化率）
         reward_return = (self.total_equity - prev_equity) / prev_equity if prev_equity > 0 else 0.0
         reward = reward_return
@@ -285,18 +285,21 @@ def optimize_agent(trial):
     return total_reward
 
 # 设置Optuna研究并优化
-study = optuna.create_study(direction="maximize")
-study.optimize(optimize_agent, n_trials=20)
-print("最佳超参数:", study.best_params)
+# study = optuna.create_study(direction="maximize")
+# study.optimize(optimize_agent, n_trials=20)
+# print("最佳超参数:", study.best_params)
+# 最佳超参数: {'lr': 3.9853770005374796e-05, 'gamma': 0.9780333545472496, 'ent_coef': 0.005168946883718907}
 
 
 # 初始化 PPO 模型
-# model = PPO(policy="MlpPolicy", env=train_env, 
-#             learning_rate=3e-4,    # 初始学习率，可调
-#             gamma=0.99,            # 折扣因子
-#             verbose=1,
-#             tensorboard_log="./tensorboard_logs/")  # TensorBoard 日志路径（可选）
+model = PPO(policy="MlpPolicy", env=train_env, 
+            learning_rate=3.9853770005374796e-05,  # 最佳学习率
+            gamma=0.9780333545472496,             # 最佳折扣因子
+            ent_coef=0.005168946883718907,        # 最佳熵损失系数
+            verbose=1,
+            device="cpu",
+            tensorboard_log="./logs/")
 
-# # 开始训练模型
-# total_timesteps = 100000  # 训练步数，可根据数据量和收敛情况调整
-# model.learn(total_timesteps=total_timesteps, progress_bar=True)
+# 开始训练模型
+total_timesteps = 100000  # 训练步数，可根据数据量和收敛情况调整
+model.learn(total_timesteps=total_timesteps, progress_bar=True)
