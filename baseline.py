@@ -301,5 +301,46 @@ model = PPO(policy="MlpPolicy", env=train_env,
             tensorboard_log="./logs/")
 
 # 开始训练模型
-total_timesteps = 100000  # 训练步数，可根据数据量和收敛情况调整
+total_timesteps = 1000000  # 训练步数，可根据数据量和收敛情况调整
 model.learn(total_timesteps=total_timesteps, progress_bar=True)
+
+
+# 使用训练好的模型在测试环境上进行回测
+obs = test_env.reset()
+done = False
+equity_curve = []  # 用于记录净值曲线
+actions = []
+while not done:
+    # 模型根据当前状态决策动作
+    action, _ = model.predict(obs, deterministic=True)
+    obs, reward, done, info = test_env.step(action)
+    # 记录每步的资产净值
+    equity_curve.append(info['equity'])
+    actions.append(action[0])
+# 回测结束后计算评估指标
+final_equity = equity_curve[-1]
+total_return = (final_equity - test_env.initial_balance) / test_env.initial_balance  # 总收益率
+max_equity = np.max(equity_curve)
+min_equity = np.min(equity_curve)
+# 计算最大回撤（百分比）
+peak_values = np.maximum.accumulate(equity_curve)
+drawdowns = (peak_values - np.array(equity_curve)) / peak_values
+max_drawdown_pct = np.max(drawdowns)
+# 计算夏普比率（假设每步为1分钟，日交易1440步，年交易约365*1440步）
+returns = np.diff(equity_curve) / equity_curve[:-1]  # 每步收益率
+if returns.size > 0 and returns.std() != 0:
+    # 转化为年化夏普：均值*每年步数^(1/2) / 标准差
+    mean_return = returns.mean()
+    std_return = returns.std()
+    # 年化因子：假设1分钟步长，一年约525600分钟
+    annual_factor = np.sqrt(525600)
+    sharpe_ratio = (mean_return * annual_factor) / (std_return + 1e-8)
+else:
+    sharpe_ratio = 0.0
+
+print(f"初始资金: {test_env.initial_balance:.2f}")
+print(f"回测最终净值: {final_equity:.2f}")
+print(f"总收益率: {total_return*100:.2f}%")
+print(f"最大回撤: {max_drawdown_pct*100:.2f}%")
+print(f"夏普比率: {sharpe_ratio:.2f}")
+print(f"交易次数: {len(actions) - actions.count(0)} (占用{len(actions)}步)")
