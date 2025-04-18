@@ -2,3 +2,4 @@
 *.npz
 logs
 __pycache__
+runs
